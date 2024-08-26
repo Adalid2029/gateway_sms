@@ -2,15 +2,17 @@
 
 namespace App\Controllers\Security;
 
-use App\Controllers\BaseController;
-use CodeIgniter\HTTP\ResponseInterface;
 use CodeIgniter\RESTful\ResourceController;
+use CodeIgniter\HTTP\ResponseInterface;
 
 class AuthController extends ResourceController
 {
     protected $format = 'json';
+
     public function mobileLogin()
     {
+        log_message('debug', 'Received data: ' . json_encode($this->request->getJSON(true)));
+
         // Validate credentials
         $rules = setting('Validation.login') ?? [
             'email' => [
@@ -27,27 +29,27 @@ class AuthController extends ResourceController
             ],
         ];
 
-        if (! $this->validateData($this->request->getPost(), $rules, [], config('Auth')->DBGroup)) {
+        $data = $this->request->getJSON(true);
+        if (!$this->validateData($data, $rules, [], config('Auth')->DBGroup)) {
             return $this->response
                 ->setJSON(['errors' => $this->validator->getErrors()])
-                ->setStatusCode(401);
+                ->setStatusCode(ResponseInterface::HTTP_UNAUTHORIZED);
         }
 
         // Get the credentials for login
-        $credentials             = $this->request->getPost(setting('Auth.validFields'));
-        $credentials             = array_filter($credentials);
-        $credentials['password'] = $this->request->getPost('password');
+        $credentials = array_intersect_key($data, array_flip(setting('Auth.validFields')));
+        $credentials['password'] = $data['password'];
 
         // Attempt to login
         $result = auth()->attempt($credentials);
-        if (! $result->isOK()) {
+        if (!$result->isOK()) {
             return $this->response
                 ->setJSON(['type' => 'error', 'message' => $result->reason()])
-                ->setStatusCode(401);
+                ->setStatusCode(ResponseInterface::HTTP_UNAUTHORIZED);
         }
 
         // Generate token and return to client
-        $token = auth()->user()->generateAccessToken(service('request')->getVar('device_name'));
+        $token = auth()->user()->generateAccessToken($data['device_name']);
 
         return $this->response
             ->setJSON(['token' => $token->raw_token]);
