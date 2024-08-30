@@ -32,7 +32,7 @@ class AuthController extends ResourceController
         $data = $this->request->getJSON(true);
         if (!$this->validateData($data, $rules, [], config('Auth')->DBGroup)) {
             return $this->response
-                ->setJSON(['errors' => $this->validator->getErrors()])
+                ->setJSON(['type' => 'error', 'message' => $this->validator->getErrors()])
                 ->setStatusCode(ResponseInterface::HTTP_UNAUTHORIZED);
         }
 
