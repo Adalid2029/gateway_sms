@@ -17,6 +17,14 @@ class SupplierController extends ResourceController
     public function detailsDashboard()
     {
         $user = auth()->user();
+        $economicInfo = $this->supplierModel->getEconomicInfoProvider($user->id, ['estado_envio' => 'COMPLETADO'])->get()->getRowArray();
+        if (empty($economicInfo))
+            return $this->response
+                ->setStatusCode(ResponseInterface::HTTP_NOT_FOUND)
+                ->setJSON([
+                    'type' => 'error',
+                    'message' => 'No se encontraron datos económicos del proveedor'
+                ]);
         return $this->response
             ->setJSON([
                 'type' => 'success',
