@@ -13,7 +13,10 @@ class TokenAuthFilter implements FilterInterface
         $tokenHeader = $request->getHeaderLine('Authorization');
 
         if (empty($tokenHeader)) {
-            return service('response')->setJSON(['error' => 'No token provided'])->setStatusCode(401);
+            return service('response')->setJSON([
+                'type' => 'error',
+                'message' => 'Token not provided'
+            ])->setStatusCode(401);
         }
 
         $token = explode(' ', $tokenHeader)[1] ?? '';
@@ -23,7 +26,10 @@ class TokenAuthFilter implements FilterInterface
         $result = $authenticator->attempt(['token' => $token]);
 
         if (! $result->isOK()) {
-            return service('response')->setJSON(['error' => 'Invalid token'])->setStatusCode(401);
+            return service('response')->setJSON([
+                'type' => 'error',
+                'message' => 'Invalid token'
+            ])->setStatusCode(401);
         }
 
         // Token is valid, you can access the user with auth()->user()
