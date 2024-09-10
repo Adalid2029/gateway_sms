@@ -44,15 +44,28 @@ class SupplierModel extends Model
     protected $beforeDelete   = [];
     protected $afterDelete    = [];
 
-    public function getEconomicInfoProvider(int $userId, array $where): object
+    public function getEconomicInfoProvider(int $userId, array $where = []): object|null
     {
-        $this->select('COUNT(*) AS total_sms_sent, COUNT(*) * tarifa_por_sms AS total_sms_cost, limite_sms sms_limit');
+        $this->select([
+            'users.id',
+            'proveedor_sms.id_users_proveedor_sms',
+            'COALESCE(COUNT(CASE WHEN envio_sms.estado_envio = "COMPLETADO" THEN envio_sms.id_envio_sms END), 0) AS total_sms_sent',
+            'COALESCE(SUM(CASE WHEN envio_sms.estado_envio = "COMPLETADO" THEN proveedor_sms.tarifa_por_sms ELSE 0 END), 0) AS total_sms_cost',
+            'proveedor_sms.limite_sms AS sms_limit'
+        ]);
         $this->join('users', 'users.id = proveedor_sms.id_users_proveedor_sms');
-        $this->join('envio_sms', 'envio_sms.id_users_proveedor_sms = proveedor_sms.id_users_proveedor_sms');
+        $this->join('envio_sms', 'envio_sms.id_users_proveedor_sms = proveedor_sms.id_users_proveedor_sms', 'left');
         $this->where('users.id', $userId);
-        if (!empty($where))
-            $this->where($where);
 
-        return $this;
+        if (!empty($where)) {
+            $this->where($where);
+        }
+
+        $this->groupBy('users.id, proveedor_sms.id_users_proveedor_sms, proveedor_sms.limite_sms');
+
+        // Si necesitas depurar la consulta
+        // var_dump($this->builder->getCompiledSelect());
+
+        return $this->get()->getRow();
     }
 }
