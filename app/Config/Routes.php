@@ -10,6 +10,7 @@ $routes->get('/', 'Home::index');
 $routes->group('v1', static function ($routes) {
     $routes->group('auth', static function ($routes) {
         $routes->post('mobile-login', 'Security\AuthController::mobileLogin');
+        $routes->post('generate-token', 'Security\AuthController::generateToken');
     });
     $routes->group('gateway', static function ($routes) {
         $routes->group('sms', static function ($routes) {
