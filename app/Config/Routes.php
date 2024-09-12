@@ -17,7 +17,7 @@ $routes->group('v1', static function ($routes) {
             $routes->group('supplier', ['filter' => 'tokenAuth'], static function ($routes) {
                 $routes->get('details-dashboard', 'Gateway\SMS\SupplierController::detailsDashboard');
             });
-            $routes->group('client', static function ($routes) {
+            $routes->group('client', ['filter' => 'tokenAuth'], static function ($routes) {
                 $routes->post('send', 'Gateway\SMS\ClientController::send');
             });
         });

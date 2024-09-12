@@ -18,8 +18,6 @@ class AuthController extends ResourceController
 
     public function mobileLogin()
     {
-        log_message('debug', 'Received data: ' . json_encode($this->request->getJSON(true)));
-
         // Validate credentials
         $rules = setting('Validation.login') ?? [
             'email' => [
@@ -63,9 +61,6 @@ class AuthController extends ResourceController
     }
     public function generateToken()
     {
-        log_message('debug', 'Received data: ' . json_encode($this->request->getJSON(true)));
-
-        // Validate credentials
         $rules = setting('Validation.login') ?? [
             'email' => [
                 'label' => 'Auth.email',

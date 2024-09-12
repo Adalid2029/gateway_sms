@@ -20,7 +20,6 @@ class TokenAuthFilter implements FilterInterface
         }
 
         $token = explode(' ', $tokenHeader)[1] ?? '';
-
         $authenticator = auth('tokens')->getAuthenticator();
 
         $result = $authenticator->attempt(['token' => $token]);
