@@ -43,4 +43,30 @@ class ClientSystemModel extends Model
     protected $afterFind      = [];
     protected $beforeDelete   = [];
     protected $afterDelete    = [];
+
+    public function getUserLatestActiveSuscriptionSmsUsage(int $idUser): array|null
+    {
+        $query = "WITH sms_utilizado AS (
+                    SELECT id_suscripcion_plan, COUNT(proveedor_envio_sms.id_proveedor_envio_sms) AS cantidad_sms_utilizado
+                    FROM envio_sms
+                        INNER JOIN proveedor_envio_sms ON(envio_sms.id_envio_sms = proveedor_envio_sms.id_envio_sms)
+                    WHERE estado_envio = 'COMPLETADO'
+                    GROUP BY id_suscripcion_plan
+                )
+                SELECT suscripcion_plan.id_suscripcion_plan, cliente.id_users_cliente, cantidad_sms_contratado,IFNULL(cantidad_sms_utilizado,0) AS cantidad_sms_utilizado , (cantidad_sms_contratado - IFNULL(cantidad_sms_utilizado,0)) AS cantidad_sms_disponible      
+                FROM cliente
+                    INNER JOIN suscripcion_plan ON(cliente.id_users_cliente = suscripcion_plan.id_users_cliente)
+                    LEFT JOIN sms_utilizado ON(suscripcion_plan.id_suscripcion_plan = sms_utilizado.id_suscripcion_plan)
+                WHERE CURRENT_DATE BETWEEN fecha_inicio AND fecha_fin
+                    AND cantidad_sms_contratado > IFNULL(cantidad_sms_utilizado,0)	  
+                    AND cliente.id_users_cliente = :id_users_cliente:
+                ORDER BY fecha_inicio
+                LIMIT 1
+            ";
+
+        return $this->query(
+            $query,
+            ['id_users_cliente' => $idUser]
+        )->getRowArray();
+    }
 }

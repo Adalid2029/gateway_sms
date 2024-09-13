@@ -5,13 +5,16 @@ namespace App\Controllers\Gateway\SMS;
 use App\Controllers\BaseController;
 use CodeIgniter\HTTP\ResponseInterface;
 use App\Models\Client\SMS\ClientSystemModel;
+use App\Models\Client\SMS\SendSmsModel;
 
 class ClientController extends BaseController
 {
     private $clientSystemModel;
+    private $sendSmsModel;
     function __construct()
     {
         $this->clientSystemModel = new ClientSystemModel();
+        $this->sendSmsModel = new SendSmsModel();
     }
     public function send()
     {
@@ -35,5 +38,28 @@ class ClientController extends BaseController
                 'type' => 'error',
                 'message' => 'No se encontró el sistema del cliente o el token es inválido'
             ]);
+        $suscriptionPlan = $this->clientSystemModel->getUserLatestActiveSuscriptionSmsUsage($user->id);
+        if (!$suscriptionPlan)
+            return $this->response->setJSON([
+                'type' => 'error',
+                'message' => 'No se encontró un plan de suscripción activo'
+            ]);
+
+        $insertedId =  $this->sendSmsModel->insert([
+            'id_suscripcion_plan' => $suscriptionPlan['id_suscripcion_plan'],
+            'id_sistema_cliente' => $clientSystem['id_sistema_cliente'],
+            'numero_destino' => $data['phone'],
+            'mensaje' => $data['message'],
+            'fecha_envio' => date('Y-m-d H:i:s'),
+        ]);
+        if (!$insertedId)
+            return $this->response->setJSON([
+                'type' => 'error',
+                'message' => 'No se pudo enviar el mensaje'
+            ]);
+        return $this->response->setJSON([
+            'type' => 'success',
+            'message' => 'Mensaje enviado correctamente'
+        ]);
     }
 }

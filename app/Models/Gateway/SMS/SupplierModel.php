@@ -49,19 +49,19 @@ class SupplierModel extends Model
         $this->select([
             'users.id',
             'proveedor_sms.id_users_proveedor_sms',
-            'COALESCE(COUNT(CASE WHEN envio_sms.estado_envio = "COMPLETADO" THEN envio_sms.id_envio_sms END), 0) AS total_sms_sent',
-            'COALESCE(SUM(CASE WHEN envio_sms.estado_envio = "COMPLETADO" THEN proveedor_sms.tarifa_por_sms ELSE 0 END), 0) AS total_sms_cost',
-            'proveedor_sms.limite_sms AS sms_limit'
-        ]);
-        $this->join('users', 'users.id = proveedor_sms.id_users_proveedor_sms');
-        $this->join('envio_sms', 'envio_sms.id_users_proveedor_sms = proveedor_sms.id_users_proveedor_sms', 'left');
-        $this->where('users.id', $userId);
-
-        if (!empty($where)) {
-            $this->where($where);
-        }
-
-        $this->groupBy('users.id, proveedor_sms.id_users_proveedor_sms, proveedor_sms.limite_sms');
+            'COALESCE(COUNT(CASE WHEN proveedor_envio_sms.estado_envio = "COMPLETADO" THEN proveedor_envio_sms.id_proveedor_envio_sms END), 0) AS total_sms_sent',
+            'COALESCE(SUM(CASE WHEN proveedor_envio_sms.estado_envio = "COMPLETADO" THEN proveedor_sms.tarifa_por_sms ELSE 0 END), 0) AS total_sms_cost',
+            'proveedor_sms.limite_sms AS sms_limit',
+        ])
+            ->join('users', 'users.id = proveedor_sms.id_users_proveedor_sms')
+            ->join('proveedor_envio_sms', 'proveedor_envio_sms.id_users_proveedor_sms = proveedor_sms.id_users_proveedor_sms', 'left')
+            ->where('users.id', $userId)
+            ->where('proveedor_envio_sms.estado_envio', 'COMPLETADO')
+            ->groupBy([
+                'users.id',
+                'proveedor_sms.id_users_proveedor_sms',
+                'proveedor_sms.limite_sms',
+            ]);
 
         // Si necesitas depurar la consulta
         // var_dump($this->builder->getCompiledSelect());
