@@ -31,4 +31,91 @@ class SupplierController extends ResourceController
                 'data' => $economicInfo
             ]);
     }
+    public function pendingMessages()
+    {
+        $user = auth()->user();
+        $pendingMessage = $this->supplierModel->getPendingSmsWithoutProvider();
+
+        if (!$pendingMessage) {
+            return $this->response
+                ->setStatusCode(ResponseInterface::HTTP_NOT_FOUND)
+                ->setJSON([
+                    'type' => 'error',
+                    'message' => 'No se encontraron mensajes pendientes'
+                ]);
+        }
+
+        $pendingMessage['id_users_proveedor_sms'] = $user->id;
+
+        $assignMessageToProvider = $this->supplierModel->assignPendingSmsToProvider($pendingMessage);
+
+        if (!$assignMessageToProvider) {
+            return $this->response
+                ->setStatusCode(ResponseInterface::HTTP_INTERNAL_SERVER_ERROR)
+                ->setJSON([
+                    'type' => 'error',
+                    'message' => 'No se pudo asignar el mensaje al proveedor'
+                ]);
+        }
+
+        $processingSms = $this->supplierModel->getProcessingSmsForProvider([
+            'proveedor_envio_sms.id_users_proveedor_sms' => $user->id,
+            'proveedor_envio_sms.estado_envio' => 'PROCESANDO',
+            'proveedor_envio_sms.id_proveedor_envio_sms' => $assignMessageToProvider
+        ]);
+
+        if (!$processingSms) {
+            return $this->response
+                ->setStatusCode(ResponseInterface::HTTP_INTERNAL_SERVER_ERROR)
+                ->setJSON([
+                    'type' => 'error',
+                    'message' => 'No se encontró el mensaje en proceso'
+                ]);
+        }
+
+        return $this->response
+            ->setJSON([
+                'type' => 'success',
+                'data' => $processingSms
+            ]);
+    }
+    public function confirmSentMessage()
+    {
+        $user = auth()->user();
+        $rules = [
+            'id_proveedor_envio_sms' => 'required|numeric',
+            'estado_envio' => 'required|in_list[COMPLETADO,RECHAZADO]'
+        ];
+
+        if (!$this->validate($rules)) {
+            return $this->response
+                ->setStatusCode(ResponseInterface::HTTP_BAD_REQUEST)
+                ->setJSON([
+                    'type' => 'error',
+                    'message' => $this->validator->getErrors()
+                ]);
+        }
+
+        $data = (array) $this->request->getJSON();
+        $data['id_users_proveedor_sms'] = $user->id;
+        $data['fecha_respuesta_sms'] = date('Y-m-d H:i:s');
+
+        $updatedMessage = $this->supplierModel->confirmSentMessage($data);
+
+        if (!$updatedMessage) {
+            return $this->response
+                ->setStatusCode(ResponseInterface::HTTP_INTERNAL_SERVER_ERROR)
+                ->setJSON([
+                    'type' => 'error',
+                    'message' => 'No se pudo confirmar el envío del mensaje'
+                ]);
+        }
+
+        return $this->response
+            ->setJSON([
+                'type' => 'success',
+                'message' => 'Mensaje confirmado correctamente',
+                'data' => $updatedMessage
+            ]);
+    }
 }

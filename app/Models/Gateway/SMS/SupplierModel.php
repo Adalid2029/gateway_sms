@@ -68,4 +68,62 @@ class SupplierModel extends Model
 
         return $this->get()->getRow();
     }
+
+    public function getPendingSmsWithoutProvider(): ?array
+    {
+        $builder = $this->db->table('envio_sms');
+        $builder->select('envio_sms.*')
+            ->join('proveedor_envio_sms', 'envio_sms.id_envio_sms = proveedor_envio_sms.id_envio_sms', 'left')
+            ->where('proveedor_envio_sms.id_proveedor_envio_sms', null)
+            ->orderBy('envio_sms.fecha_envio', 'ASC')
+            ->limit(1);
+
+        return $builder->get()->getRowArray();
+    }
+
+    public function assignPendingSmsToProvider(array $smsData): ?int
+    {
+        $builder = $this->db->table('proveedor_envio_sms');
+        $result = $builder->insert([
+            'id_users_proveedor_sms' => $smsData['id_users_proveedor_sms'],
+            'id_envio_sms' => $smsData['id_envio_sms'],
+            'fecha_asignacion_sms' => date('Y-m-d H:i:s'),
+            'estado_envio' => 'PROCESANDO',
+        ]);
+
+        return $result ? $this->db->insertID() : null;
+    }
+
+    public function getProcessingSmsForProvider(array $where = []): ?array
+    {
+        $builder = $this->db->table('envio_sms');
+        $builder->select('*')
+            ->join('proveedor_envio_sms', 'envio_sms.id_envio_sms = proveedor_envio_sms.id_envio_sms')
+            ->where($where)
+            ->orderBy('envio_sms.fecha_envio', 'ASC')
+            ->limit(1);
+
+        return $builder->get()->getRowArray();
+    }
+    public function confirmSentMessage(array $data): ?array
+    {
+        $builder = $this->db->table('proveedor_envio_sms');
+        $builder->where('id_proveedor_envio_sms', $data['id_proveedor_envio_sms'])
+            ->where('id_users_proveedor_sms', $data['id_users_proveedor_sms'])
+            ->where('estado_envio', 'PROCESANDO');
+
+        $update = $builder->update([
+            'estado_envio' => $data['estado_envio'],
+            'fecha_respuesta_sms' => $data['fecha_respuesta_sms']
+        ]);
+
+        if ($this->db->affectedRows() === 0) {
+            return null;
+        }
+
+        return $this->getProcessingSmsForProvider([
+            'proveedor_envio_sms.id_proveedor_envio_sms' => $data['id_proveedor_envio_sms'],
+            'proveedor_envio_sms.id_users_proveedor_sms' => $data['id_users_proveedor_sms']
+        ]);
+    }
 }
