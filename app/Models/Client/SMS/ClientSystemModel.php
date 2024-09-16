@@ -63,7 +63,6 @@ class ClientSystemModel extends Model
                 ORDER BY fecha_inicio
                 LIMIT 1
             ";
-        var_dump($query);
 
         return $this->query(
             $query,

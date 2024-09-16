@@ -39,7 +39,7 @@ class ClientController extends BaseController
                 'message' => 'No se encontró el sistema del cliente o el token es inválido'
             ]);
         $suscriptionPlan = $this->clientSystemModel->getUserLatestActiveSuscriptionSmsUsage($user->id);
-        var_dump($suscriptionPlan);
+        var_dump($user->id);
         if (!$suscriptionPlan)
             return $this->response->setJSON([
                 'type' => 'error',
