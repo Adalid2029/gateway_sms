@@ -44,7 +44,7 @@ class SupplierModel extends Model
     protected $beforeDelete   = [];
     protected $afterDelete    = [];
 
-    public function getEconomicInfoProvider(int $userId, array $where = []): object|null
+    public function getEconomicInfoProvider(int $userId, array $where = []): array|null
     {
         $this->select([
             'users.id',
@@ -66,7 +66,39 @@ class SupplierModel extends Model
         // Si necesitas depurar la consulta
         // var_dump($this->builder->getCompiledSelect());
 
-        return $this->get()->getRow();
+        return $this->get()->getRowArray();
+    }
+
+    public function getSentMessagesByDate(int $userId,   $tenDaysAgo,  $currentDate): ?array
+    {
+        $builder = $this->db->table('proveedor_envio_sms');
+        $builder->select('id_users_proveedor_sms, COUNT(*) as total_mensajes, DATE_FORMAT(fecha_respuesta_sms, "%Y-%m-%d") as fecha_respuesta')
+            ->where('estado_envio', 'COMPLETADO')
+            ->where('DATE_FORMAT(fecha_respuesta_sms, "%Y-%m-%d") >=', $tenDaysAgo)
+            ->where('DATE_FORMAT(fecha_respuesta_sms, "%Y-%m-%d") <=', $currentDate)
+            ->where('id_users_proveedor_sms', $userId)
+            ->groupBy('DATE_FORMAT(fecha_respuesta_sms, "%Y-%m-%d"), id_users_proveedor_sms')
+            ->orderBy('fecha_respuesta DESC, id_users_proveedor_sms');
+        $messagesByDate = [];
+        $currentDate = strtotime($currentDate);
+        $tenDaysAgo = strtotime($tenDaysAgo);
+        while ($tenDaysAgo <= $currentDate) {
+            $dates[] = date('Y-m-d', $tenDaysAgo);
+            $tenDaysAgo = strtotime('+1 day', $tenDaysAgo);
+        }
+        $messages = $builder->get()->getResultArray();
+
+        foreach ($dates as $date) {
+            $messagesByDate[$date] = 0;
+            foreach ($messages as $message) {
+                if ($message['fecha_respuesta'] === $date) {
+                    $messagesByDate[$date] = ['messages_sended' => $message['total_mensajes'], 'month' => date('M', strtotime($date)), 'day' => date('d', strtotime($date))];
+                } else {
+                    $messagesByDate[$date] = ['messages_sended' => 0, 'month' => date('M', strtotime($date)), 'day' => date('d', strtotime($date))];
+                }
+            }
+        }
+        return $messagesByDate;
     }
 
     public function getPendingSmsWithoutProvider(): ?array
