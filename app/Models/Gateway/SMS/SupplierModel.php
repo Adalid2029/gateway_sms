@@ -88,13 +88,13 @@ class SupplierModel extends Model
         }
         $messages = $builder->get()->getResultArray();
 
+        $messagesByDate = [];
+
         foreach ($dates as $date) {
-            $messagesByDate[$date] = 0;
+            $messagesByDate[$date] = ['messages_sended' => 0, 'month' => date('M', strtotime($date)), 'day' => date('d', strtotime($date))];
             foreach ($messages as $message) {
                 if ($message['fecha_respuesta'] === $date) {
                     $messagesByDate[$date] = ['messages_sended' => $message['total_mensajes'], 'month' => date('M', strtotime($date)), 'day' => date('d', strtotime($date))];
-                } else {
-                    $messagesByDate[$date] = ['messages_sended' => 0, 'month' => date('M', strtotime($date)), 'day' => date('d', strtotime($date))];
                 }
             }
         }
