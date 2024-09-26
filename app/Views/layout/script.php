@@ -20,7 +20,10 @@
  <script src="<?= base_url() ?>/assets/js/chart/apex-chart/apex-chart.js"></script>
  <script src="<?= base_url() ?>/assets/js/animation/wow/wow.min.js"></script>
  <script src="<?= base_url() ?>/assets/js/prism/prism.min.js"></script>
-
+ <script src="<?= base_url() ?>/dist/axios-1.7.7/axios.min.js"></script>
+ <script>
+     window.BASE_URL = "<?= base_url() ?>/";
+ </script>
  <!-- include script & Plugins -->
  <?= $this->renderSection('script') ?>
 
@@ -29,4 +32,6 @@
  <script src="<?= base_url() ?>/assets/js/theme-customizer/customizer.js"></script>
  <!-- login js-->
  <!-- Plugin used-->
- <script>new WOW().init();</script>
+ <script>
+     new WOW().init();
+ </script>

@@ -1,8 +1,11 @@
 let modalId;
 
-function setModalParameters(modal, size, onEscape, backdrop, data, isDraggable = true) {
+function setModalParameters(modal, title, size, onEscape, backdrop, data, isDraggable = true) {
     modalId = `#${modal._element.id}`;
+    const modalHeader = document.querySelector(`${modalId}-header`);
     const modalBody = document.querySelector(`${modalId}-body`);
+    const modalTitle = document.querySelector(`${modalId}-title`);
+    modalTitle.innerHTML = title;
     modal._dialog.classList.add(size);
 
     if (data.view) {
@@ -117,10 +120,7 @@ function initializeAfterViewLoad() {
     });
 
     loadSpanishLocale();
-    $('[data-control="date"]').flatpickr({
-        dateFormat: "Y-m-d",
-        locale: "en",
-    });
+
 }
 
 function loadSpanishLocale() {
