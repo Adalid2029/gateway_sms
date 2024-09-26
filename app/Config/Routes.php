@@ -25,6 +25,19 @@ $routes->group('v1', static function ($routes) {
         });
     });
 });
+$routes->group('client', static function ($routes) {
+    $routes->group('system', static function ($routes) {
+        $routes->get('', 'Gateway\SMS\ClientController::index', ['as' => 'client/system/list']);
+        $routes->post('add', 'ClientController::add', ['as' => 'client/system/add']);
+        $routes->get('edit/(:num)', 'ClientController::edit/$1', ['as' => 'client/system/edit']);
+        $routes->post('update', 'ClientController::update', ['as' => 'client/system/update']);
+        $routes->get('regenerate-token/(:num)', 'ClientController::regenerateToken/$1', ['as' => 'client/system/regenerate-token']);
+        $routes->get('report/(:num)', 'ClientController::report/$1', ['as' => 'client/system/report']);
+        $routes->get('general-report', 'ClientController::generalReport', ['as' => 'client/system/general-report']);
+    });
+});
+
+
 
 $routes->get('/', function () {
     return redirect()->to('dashboards/default-dashboard');

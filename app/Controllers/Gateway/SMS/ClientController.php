@@ -3,7 +3,6 @@
 namespace App\Controllers\Gateway\SMS;
 
 use App\Controllers\BaseController;
-use CodeIgniter\HTTP\ResponseInterface;
 use App\Models\Client\SMS\ClientSystemModel;
 use App\Models\Client\SMS\SendSmsModel;
 
@@ -61,5 +60,17 @@ class ClientController extends BaseController
             'type' => 'success',
             'message' => 'Mensaje enviado correctamente'
         ]);
+    }
+    public function index()
+    {
+        if ($this->request->isAJAX()) {
+            return $this->response->setJSON($data);
+        }
+
+        $data['suscriptionActive'] = $this->clientSystemModel->getUserLatestActiveSuscriptionSmsUsage(auth()->user()->id);
+        $data['systems'] = $this->clientSystemModel->where(['id_users_cliente' => auth()->user()->id])->findAll();
+        $data['urlAddSystem'] = base_url(route_to('client/system/add'));
+        return dd($data);
+        return view('gateway/sms/client/client_system_list', $data);
     }
 }

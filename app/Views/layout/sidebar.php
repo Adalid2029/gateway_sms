@@ -13,10 +13,10 @@
             <div class="mobile-back text-end"><span>Back</span><i class="fa fa-angle-right ps-2" aria-hidden="true"></i></div>
           </li>
           <li class="pin-title sidebar-main-title">
-                    <div> 
-                      <h6>Pinned</h6>
-                    </div>
-                  </li>
+            <div>
+              <h6>Pinned</h6>
+            </div>
+          </li>
           <li class="sidebar-main-title">
             <div>
               <h6 class="lan-1">General</h6>
@@ -432,7 +432,7 @@
             <div>
               <h6>Pages</h6>
             </div>
-          </li>    
+          </li>
           <li class="sidebar-list"><i class="fa fa-thumb-tack"></i><a class="sidebar-link sidebar-title link-nav" href="<?= base_url("sample-page") ?>">
               <svg class="stroke-icon">
                 <use href="<?= base_url() ?>/assets/svg/icon-sprite.svg#stroke-sample-page"></use>

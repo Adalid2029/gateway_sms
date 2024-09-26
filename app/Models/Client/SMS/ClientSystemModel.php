@@ -53,9 +53,10 @@ class ClientSystemModel extends Model
                     WHERE estado_envio = 'COMPLETADO'
                     GROUP BY id_suscripcion_plan
                 )
-                SELECT suscripcion_plan.id_suscripcion_plan, cliente.id_users_cliente, cantidad_sms_contratado,IFNULL(cantidad_sms_utilizado,0) AS cantidad_sms_utilizado , (cantidad_sms_contratado - IFNULL(cantidad_sms_utilizado,0)) AS cantidad_sms_disponible      
+                SELECT suscripcion_plan.id_suscripcion_plan, cliente.id_users_cliente, cantidad_sms_contratado,IFNULL(cantidad_sms_utilizado,0) AS cantidad_sms_utilizado , (cantidad_sms_contratado - IFNULL(cantidad_sms_utilizado,0)) AS cantidad_sms_disponible, fecha_fin, plan_sms.nombre
                 FROM cliente
                     INNER JOIN suscripcion_plan ON(cliente.id_users_cliente = suscripcion_plan.id_users_cliente)
+                    INNER JOIN plan_sms on(suscripcion_plan.id_plan_sms = plan_sms.id_plan_sms)
                     LEFT JOIN sms_utilizado ON(suscripcion_plan.id_suscripcion_plan = sms_utilizado.id_suscripcion_plan)
                 WHERE CURRENT_DATE BETWEEN fecha_inicio AND fecha_fin
                     AND cantidad_sms_contratado > IFNULL(cantidad_sms_utilizado,0)	  
