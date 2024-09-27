@@ -1,7 +1,12 @@
 import { BASE_URL } from "/js/helpers/gateway.js"
 import { renderSuscriptionInfo, createSystemCard } from "./clientSystemView.js";
 
+let isLoading = false;
+
 export async function loadSystems(urlList, systemCardsContainer) {
+    if (isLoading) return; // Prevenir múltiples llamadas simultáneas
+    isLoading = true;
+
     try {
         const response = await axios.get(urlList, {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
@@ -18,5 +23,7 @@ export async function loadSystems(urlList, systemCardsContainer) {
         });
     } catch (error) {
         console.error('Error loading systems:', error);
+    } finally {
+        isLoading = false;
     }
 }

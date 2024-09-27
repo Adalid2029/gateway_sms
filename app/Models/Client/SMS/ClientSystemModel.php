@@ -12,7 +12,7 @@ class ClientSystemModel extends Model
     protected $returnType       = 'array';
     protected $useSoftDeletes   = false;
     protected $protectFields    = true;
-    protected $allowedFields    = ['token_api'];
+    protected $allowedFields    = ['id_users_cliente', 'nombre_sistema', 'url_sistema', 'token_api'];
 
     protected bool $allowEmptyInserts = false;
     protected bool $updateOnlyChanged = true;

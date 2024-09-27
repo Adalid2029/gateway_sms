@@ -64,7 +64,7 @@ class ClientController extends BaseController
     public function index()
     {
         $data['suscriptionActive'] = $this->clientSystemModel->getUserLatestActiveSuscriptionSmsUsage(auth()->user()->id);
-        $data['systems'] = $this->clientSystemModel->where(['id_users_cliente' => auth()->user()->id])->findAll();
+        $data['systems'] = $this->clientSystemModel->where(['id_users_cliente' => auth()->user()->id])->orderBy('id_sistema_cliente DESC')->findAll();
         $data['urlAddSystem'] = base_url(route_to('client/system/add'));
         $data['urlListSystem'] = base_url(route_to('client/system/list'));
         if ($this->request->isAJAX()) {
@@ -72,5 +72,36 @@ class ClientController extends BaseController
         }
 
         return view('gateway/sms/client/client_system_list', $data);
+    }
+    public function add()
+    {
+        $rules = [
+            'nombre_sistema' => 'required|string|max_length[100]|min_length[1]',
+            'url_sistema' => 'required|valid_url|max_length[255]|min_length[1]',
+        ];
+        $data = $this->request->getJSON(true);
+        if (!$this->validateData($data, $rules)) {
+            return $this->response->setJSON([
+                'type' => 'error',
+                'message' => $this->validator->getErrors()
+            ]);
+        }
+        $user = auth()->user();
+        $insertedId = $this->clientSystemModel->insert([
+            'id_users_cliente' => $user->id,
+            'nombre_sistema' => $data['nombre_sistema'],
+            'url_sistema' => $data['url_sistema'],
+            'token_api' => bin2hex(random_bytes(32)),
+        ]);
+        if (!$insertedId)
+            return $this->response->setJSON([
+                'type' => 'error',
+                'message' => 'No se pudo agregar el sistema'
+            ]);
+
+        return $this->response->setJSON([
+            'type' => 'success',
+            'message' => 'Sistema agregado correctamente'
+        ]);
     }
 }

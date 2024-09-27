@@ -21,6 +21,9 @@
  <script src="<?= base_url() ?>/assets/js/animation/wow/wow.min.js"></script>
  <script src="<?= base_url() ?>/assets/js/prism/prism.min.js"></script>
  <script src="<?= base_url() ?>/dist/axios-1.7.7/axios.min.js"></script>
+ <script src="<?= base_url() ?>/dist/formvalidation/dist/js/FormValidation.full.min.js"></script>
+ <script src="<?= base_url() ?>/dist/formvalidation/dist/js/plugins/Bootstrap5.js"></script>
+ <script src="<?= base_url() ?>/dist/sweetalert2/sweetalert2.all.min.js"></script>
  <script>
      window.BASE_URL = "<?= base_url() ?>/";
  </script>

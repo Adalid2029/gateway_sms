@@ -251,33 +251,17 @@ function handleModalCancel(modal, cancelButton, form) {
     });
 }
 
-function BASE_URL(url) {
+function BASE_URL(url = '') {
     return window.BASE_URL + url;
 }
 
 class Toast {
-    static error(message, title = 'Error') {
-        this._showToast('error', title, message);
-    }
-
-    static success(message, title = 'Success') {
-        this._showToast('success', title, message);
-    }
-
-    static warning(message, title = 'Warning') {
-        this._showToast('warning', title, message);
-    }
-
-    static info(message, title = 'Information') {
-        this._showToast('info', title, message);
-    }
-
-    static _showToast(icon, title, message) {
+    error = (message, title = 'Error') => {
         Swal.fire({
-            icon: icon,
+            icon: "error",
             title: title,
             html: message,
-            confirmButtonText: "Continue",
+            confirmButtonText: "Continuar",
             customClass: {
                 confirmButton: "btn btn-primary",
                 cancelButton: "btn btn-light",
@@ -285,8 +269,46 @@ class Toast {
             buttonsStyling: false,
         });
     }
-
-    static mixin() {
+    success = (message, title = 'Éxito') => {
+        Swal.fire({
+            icon: "success",
+            title: this.title,
+            html: message,
+            confirmButtonText: "Continuar",
+            customClass: {
+                confirmButton: "btn btn-primary",
+                cancelButton: "btn btn-light",
+            },
+            buttonsStyling: false,
+        });
+    }
+    warning = (message, title = 'Advertencia') => {
+        Swal.fire({
+            icon: 'warning',
+            title: title,
+            html: message,
+            confirmButtonText: "Continuar",
+            customClass: {
+                confirmButton: "btn btn-primary",
+                cancelButton: "btn btn-light",
+            },
+            buttonsStyling: false,
+        })
+    }
+    info = (message, title = 'Información') => {
+        Swal.fire({
+            icon: 'info',
+            title: title,
+            html: message,
+            confirmButtonText: "Continuar",
+            customClass: {
+                confirmButton: "btn btn-primary",
+                cancelButton: "btn btn-light",
+            },
+            buttonsStyling: false,
+        })
+    }
+    mixin = () => {
         return Swal.mixin({
             toast: true,
             position: "top-end",
