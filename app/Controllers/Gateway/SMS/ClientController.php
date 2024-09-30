@@ -76,16 +76,27 @@ class ClientController extends BaseController
     public function add()
     {
         $rules = [
-            'nombre_sistema' => 'required|string|max_length[100]|min_length[1]',
-            'url_sistema' => 'required|valid_url|max_length[255]|min_length[1]',
+            'nombre_sistema' => [
+                'label' => 'Nombre del sistema',
+                'rules' => 'required|string|max_length[100]|min_length[1]'
+            ],
+            'url_sistema' => [
+                'label' => 'URL del sistema',
+                'rules' => 'required|valid_url|max_length[255]|min_length[1]'
+            ]
         ];
+    
         $data = $this->request->getJSON(true);
+    
         if (!$this->validateData($data, $rules)) {
+            $errors = $this->validator->getErrors();
+            $errorString = implode('<br>', $errors);
             return $this->response->setJSON([
                 'type' => 'error',
-                'message' => $this->validator->getErrors()
+                'message' => $errorString
             ]);
         }
+    
         $user = auth()->user();
         $insertedId = $this->clientSystemModel->insert([
             'id_users_cliente' => $user->id,
@@ -93,15 +104,20 @@ class ClientController extends BaseController
             'url_sistema' => $data['url_sistema'],
             'token_api' => bin2hex(random_bytes(32)),
         ]);
-        if (!$insertedId)
+    
+        if (!$insertedId) {
             return $this->response->setJSON([
                 'type' => 'error',
                 'message' => 'No se pudo agregar el sistema'
             ]);
-
+        }
+    
         return $this->response->setJSON([
             'type' => 'success',
             'message' => 'Sistema agregado correctamente'
         ]);
+    }
+    public function generateTokenForSystem(){
+        
     }
 }
