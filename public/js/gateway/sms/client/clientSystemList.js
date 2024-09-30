@@ -4,7 +4,7 @@ import { renderSuscriptionInfo, createSystemCard } from "./clientSystemView.js";
 let isLoading = false;
 
 export async function loadSystems(urlList, systemCardsContainer) {
-    if (isLoading) return; // Prevenir múltiples llamadas simultáneas
+    if (isLoading) return;
     isLoading = true;
 
     try {

@@ -1,6 +1,6 @@
 let modalId;
 
-function setModalParameters(modal, title, size, onEscape, backdrop, data, isDraggable = true) {
+function setModalParameters(modal, title, size, onEscape, backdrop, view, isDraggable = true) {
     modalId = `#${modal._element.id}`;
     const modalHeader = document.querySelector(`${modalId}-header`);
     const modalBody = document.querySelector(`${modalId}-body`);
@@ -8,8 +8,9 @@ function setModalParameters(modal, title, size, onEscape, backdrop, data, isDrag
     modalTitle.innerHTML = title;
     modal._dialog.classList.add(size);
 
-    if (data.view) {
-        modalBody.innerHTML = data.view;
+    // if is empty typeof view or null or undefined or [] or {}
+    if (typeof view === "string" && view.trim() !== "") {
+        modalBody.innerHTML = view;
     }
     modal._config.backdrop = backdrop;
     modal._config.keyboard = onEscape;

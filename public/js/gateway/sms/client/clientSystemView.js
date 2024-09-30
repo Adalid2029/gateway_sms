@@ -14,7 +14,7 @@ export function createSystemCard(system) {
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5>${system.nombre_sistema}</h5>
-                <button class="btn btn-icon btn-primary btn-sm edit-system" data-id="${system.id_sistema_cliente}">
+                <button class="btn btn-icon btn-primary btn-sm edit-system" data-url="${system.urlEditSystem}">
                     <i class="fa fa-edit"></i>
                 </button>
             </div>
@@ -23,11 +23,11 @@ export function createSystemCard(system) {
                 <div class="form-group">
                     <label>TOKEN</label>
                     <div class="input-group">
-                        <input type="text" class="form-control" value="${system.token_api}" readonly>
-                        <button class="btn btn-outline-info copy-token" type="button">
+                        <input type="text" class="form-control form-control-sm" value="${system.token_api}" readonly>
+                        <button class="btn btn-outline-info copy-token" type="button" data-token="${system.token_api}">
                             <i class="fa fa-copy"></i>
                         </button>
-                        <button class="btn btn-outline-warning regenerate-token" type="button" data-id="${system.id_sistema_cliente}">
+                        <button class="btn btn-outline-warning regenerate-token" type="button" data-url="${system.urlRegenerateSystemToken}">
                             <i class="fa fa-rotate-left"></i>
                         </button>
                     </div>
@@ -35,11 +35,12 @@ export function createSystemCard(system) {
                 <div class="mt-3">
                     <label>REFERENCIAS API</label>
                     <div class="d-flex flex-wrap justify-content-between align-items-center m-4">
-                        <img src="${BASE_URL()}/img/icons/php-brands-solid.svg" alt="PHP" class="mb-2 icon-hover" height="30">
-                        <img src="${BASE_URL()}/img/icons/python-brands-solid.svg" alt="Python" class="mb-2 icon-hover" height="30">
-                        <img src="${BASE_URL()}/img/icons/node-js-brands-solid.svg" alt="JavaScript" class="mb-2 icon-hover" height="30">
-                        <img src="${BASE_URL()}/img/icons/laravel-brands-solid.svg" alt="Laravel" class="mb-2 icon-hover" height="30">
-                        <img src="${BASE_URL()}/img/icons/1907139_codeigniter_logo_media_social_icon.svg" alt="CodeIgniter" class="mb-2 icon-hover" height="30">
+                        <img src="${BASE_URL()}/img/icons/Curl-logo.svg" alt="cURL" class="mb-2 icon-hover api-example" data-lang="curl" height="30">
+                        <img src="${BASE_URL()}/img/icons/php-brands-solid.svg" alt="PHP" class="mb-2 icon-hover api-example" data-lang="php" height="30">
+                        <img src="${BASE_URL()}/img/icons/1907139_codeigniter_logo_media_social_icon.svg" alt="CodeIgniter" class="mb-2 icon-hover api-example" data-lang="codeigniter" height="30">
+                        <img src="${BASE_URL()}/img/icons/laravel-brands-solid.svg" alt="Laravel" class="mb-2 icon-hover api-example" data-lang="laravel" height="30">
+                        <img src="${BASE_URL()}/img/icons/python-brands-solid.svg" alt="Python" class="mb-2 icon-hover api-example" data-lang="python" height="30">
+                        <img src="${BASE_URL()}/img/icons/node-js-brands-solid.svg" alt="JavaScript" class="mb-2 icon-hover api-example" data-lang="javascript" height="30">
                     </div>
                 </div>
                 <div class="mt-3 d-flex justify-content-between align-items-center">

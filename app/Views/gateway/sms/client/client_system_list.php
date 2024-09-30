@@ -1,5 +1,6 @@
 <?= $this->extend('layout/master') ?>
 <?= $this->section('css') ?>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" />
 <style>
     .icon-hover {
         transition: transform 0.3s ease, opacity 0.3s ease;
@@ -67,7 +68,39 @@
                 <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form id="kt_modal_add-form" class="form" novalidate="novalidate" action="<?= $urlAddSystem ?>" method="POST">
-                <div class="modal-body" id="kt_modal_add-dialog-body">
+                <div class="modal-body" id="kt_modal_add-body">
+                    <div class="row g-3 mb-4">
+                        <div class="col fv-row">
+                            <label class="form-label" for="nombre_sistema">Nombre sistema</label>
+                            <input class="form-control" id="nombre_sistema" type="text" name="nombre_sistema" value="Sistema nuevo" required>
+                            <div class="invalid-feedback"></div>
+                        </div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col fv-row">
+                            <label class="form-label" for="url_sistema">Url sistema</label>
+                            <input class="form-control" id="url_sistema" type="text" name="url_sistema" value="https://siacop.upea.bo" required>
+                            <div class="invalid-feedback"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
+                    <button class="btn btn-primary" type="submit">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="kt_modal_example_api" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenter" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" id="kt_modal_example_api-dialog" role="document">
+        <div class="modal-content" id="kt_modal_example_api-dialog-content">
+            <div class="modal-header" id="kt_modal_example_api-dialog-header">
+                <h5 class="modal-title" id="kt_modal_example_api-title">Modal title</h5>
+                <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="kt_modal_example_api-form" class="form" novalidate="novalidate" action="<?= $urlAddSystem ?>" method="POST">
+                <div class="modal-body" id="kt_modal_example_api-body">
                     <div class="row g-3 mb-4">
                         <div class="col fv-row">
                             <label class="form-label" for="nombre_sistema">Nombre sistema</label>
@@ -93,6 +126,8 @@
 </div>
 <?= $this->endSection() ?>
 <?= $this->section('script') ?>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
 <script type="module">
     import {
         initClientSystem

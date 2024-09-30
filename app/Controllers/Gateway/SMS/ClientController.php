@@ -18,8 +18,14 @@ class ClientController extends BaseController
     public function send()
     {
         $rules = [
-            'phone' => 'required|numeric',
-            'message' => 'required|string',
+            'phone' => [
+                'label' => 'Número de teléfono',
+                'rules' => 'required|numeric'
+            ],
+            'message' => [
+                'label' => 'Mensaje',
+                'rules' => 'required|string|max_length[160]|min_length[1]'
+            ]
         ];
         $data = $this->request->getJSON(true);
         if (!$this->validateData($data, $rules)) {
@@ -65,6 +71,11 @@ class ClientController extends BaseController
     {
         $data['suscriptionActive'] = $this->clientSystemModel->getUserLatestActiveSuscriptionSmsUsage(auth()->user()->id);
         $data['systems'] = $this->clientSystemModel->where(['id_users_cliente' => auth()->user()->id])->orderBy('id_sistema_cliente DESC')->findAll();
+        $data['systems'] = array_map(function ($system) {
+            $system['urlRegenerateSystemToken'] = base_url(route_to('client/system/regenerate-token', $system['id_sistema_cliente']));
+            $system['urlEditSystem'] = base_url(route_to('client/system/edit', $system['id_sistema_cliente']));
+            return $system;
+        }, $data['systems']);
         $data['urlAddSystem'] = base_url(route_to('client/system/add'));
         $data['urlListSystem'] = base_url(route_to('client/system/list'));
         if ($this->request->isAJAX()) {
@@ -72,6 +83,7 @@ class ClientController extends BaseController
         }
 
         return view('gateway/sms/client/client_system_list', $data);
+        // $this->generateTokenForSystem();
     }
     public function add()
     {
@@ -85,9 +97,9 @@ class ClientController extends BaseController
                 'rules' => 'required|valid_url|max_length[255]|min_length[1]'
             ]
         ];
-    
+
         $data = $this->request->getJSON(true);
-    
+
         if (!$this->validateData($data, $rules)) {
             $errors = $this->validator->getErrors();
             $errorString = implode('<br>', $errors);
@@ -96,28 +108,108 @@ class ClientController extends BaseController
                 'message' => $errorString
             ]);
         }
-    
+
         $user = auth()->user();
         $insertedId = $this->clientSystemModel->insert([
             'id_users_cliente' => $user->id,
             'nombre_sistema' => $data['nombre_sistema'],
             'url_sistema' => $data['url_sistema'],
-            'token_api' => bin2hex(random_bytes(32)),
+            'token_api' => $this->generateTokenForSystem()
         ]);
-    
+
         if (!$insertedId) {
             return $this->response->setJSON([
                 'type' => 'error',
                 'message' => 'No se pudo agregar el sistema'
             ]);
         }
-    
+
         return $this->response->setJSON([
             'type' => 'success',
             'message' => 'Sistema agregado correctamente'
         ]);
     }
-    public function generateTokenForSystem(){
-        
+    public function edit($id)
+    {
+        $system = $this->clientSystemModel->find($id);
+        if (!$system) {
+            return $this->response->setJSON([
+                'type' => 'error',
+                'message' => 'Sistema no encontrado'
+            ]);
+        }
+        return $this->response->setJSON([
+            'type' => 'success',
+            'data' => $system,
+            'urlUpdateSystem' => base_url(route_to('client/system/update'))
+        ]);
+    }
+
+    public function update()
+    {
+        $rules = [
+            'id_sistema_cliente' => [
+                'label' => 'ID del sistema',
+                'rules' => 'required|integer'
+            ],
+            'nombre_sistema' => [
+                'label' => 'Nombre del sistema',
+                'rules' => 'required|string|max_length[100]|min_length[1]'
+            ],
+            'url_sistema' => [
+                'label' => 'URL del sistema',
+                'rules' => 'required|valid_url|max_length[255]|min_length[1]'
+            ]
+        ];
+
+        $data = $this->request->getJSON(true);
+
+        if (!$this->validateData($data, $rules)) {
+            $errors = $this->validator->getErrors();
+            $errorString = implode('<br>', $errors);
+            return $this->response->setJSON([
+                'type' => 'error',
+                'message' => $errorString
+            ]);
+        }
+
+        $updated = $this->clientSystemModel->update($data['id_sistema_cliente'], [
+            'nombre_sistema' => $data['nombre_sistema'],
+            'url_sistema' => $data['url_sistema']
+        ]);
+
+        if (!$updated) {
+            return $this->response->setJSON([
+                'type' => 'error',
+                'message' => 'No se pudo actualizar el sistema'
+            ]);
+        }
+
+        return $this->response->setJSON([
+            'type' => 'success',
+            'message' => 'Sistema actualizado correctamente'
+        ]);
+    }
+    public function regenerateSystemToken(int $idClientSystem)
+    {
+        $user = auth()->user();
+        $clientSystem = $this->clientSystemModel->where(['id_users_cliente' => $user->id, 'id_sistema_cliente' => $idClientSystem])->first();
+        if (!$clientSystem)
+            return $this->response->setJSON([
+                'type' => 'error',
+                'message' => 'No se encontró el sistema del cliente'
+            ]);
+        $token = $this->generateTokenForSystem();
+        $this->clientSystemModel->update($idClientSystem, ['token_api' => $token]);
+        return $this->response->setJSON([
+            'type' => 'success',
+            'message' => 'Token regenerado correctamente',
+            'data' => ['token' => $token]
+        ]);
+    }
+    private function generateTokenForSystem(): string
+    {
+        $token = auth()->user()->generateAccessToken('sms');
+        return $token->raw_token;
     }
 }
