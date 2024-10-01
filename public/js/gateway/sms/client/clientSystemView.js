@@ -35,7 +35,7 @@ export function createSystemCard(system) {
                 <div class="mt-3">
                     <label>REFERENCIAS API</label>
                     <div class="d-flex flex-wrap justify-content-between align-items-center m-4">
-                        <img src="${BASE_URL()}/img/icons/Curl-logo.svg" alt="cURL" class="mb-2 icon-hover api-example" data-lang="curl" height="30">
+                        <img src="${BASE_URL()}/img/icons/curl-brands.svg" alt="cURL" class="mb-2 icon-hover api-example" data-lang="curl" height="30">
                         <img src="${BASE_URL()}/img/icons/php-brands-solid.svg" alt="PHP" class="mb-2 icon-hover api-example" data-lang="php" height="30">
                         <img src="${BASE_URL()}/img/icons/1907139_codeigniter_logo_media_social_icon.svg" alt="CodeIgniter" class="mb-2 icon-hover api-example" data-lang="codeigniter" height="30">
                         <img src="${BASE_URL()}/img/icons/laravel-brands-solid.svg" alt="Laravel" class="mb-2 icon-hover api-example" data-lang="laravel" height="30">
@@ -45,7 +45,7 @@ export function createSystemCard(system) {
                 </div>
                 <div class="mt-3 d-flex justify-content-between align-items-center">
                     <span>SMS enviado: ${system.sms_enviados || 0}</span>
-                    <button class="btn btn-info btn-sm system-report" data-id="${system.id_sistema_cliente}">Reporte</button>
+                    <!--<button class="btn btn-info btn-sm system-report" data-id="${system.id_sistema_cliente}">Reporte</button>-->
                 </div>
             </div>
         </div>

@@ -60,7 +60,21 @@ export function initClientSystem() {
                     icon: 'error'
                 });
             }
-        } else if (e.target.closest('.system-report')) {
+        } else if (e.target.closest('.copy-token')) {
+            const token = e.target.closest('.copy-token').dataset.token;
+            navigator.clipboard.writeText(token).then(() => {
+                toast.mixin().fire({
+                    title: 'Token copiado al portapapeles',
+                    icon: 'success'
+                });
+            }).catch(() => {
+                toast.mixin().fire({
+                    title: 'Error al copiar el token al portapapeles',
+                    icon: 'error'
+                });
+            });
+        }
+        else if (e.target.closest('.system-report')) {
             const systemId = e.target.closest('.system-report').dataset.id;
             try {
                 const report = await getSystemReport(systemId);
@@ -137,35 +151,52 @@ export function initClientSystem() {
         `,
             codeigniter: `
         <?php
-        // CodeIgniter Example
-        $client = \\Config\\Services::curlrequest();
+        namespace App\\Controllers;
         
-        $response = $client->request('POST', '${BASE_URL()}v1/gateway/sms/client/send', [
-            'headers' => [
-                'Authorization' => 'Bearer ${token}',
-                'Content-Type' => 'application/json'
-            ],
-            'json' => [
-                'phone' => '+59178877502',
-                'message' => 'Hola, este es un mensaje de prueba'
-            ]
-        ]);
+        use CodeIgniter\\HTTP\\CURLRequest;
         
-        $body = $response->getBody();
-        echo $body;
+        class SmsController extends BaseController
+        {
+            public function sendSms()
+            {
+                $client = \\Config\\Services::curlrequest();
+                
+                $response = $client->request('POST', '${BASE_URL()}v1/gateway/sms/client/send', [
+                    'headers' => [
+                        'Authorization' => 'Bearer ${token}',
+                        'Content-Type' => 'application/json'
+                    ],
+                    'json' => [
+                        'phone' => '+59178877502',
+                        'message' => 'Hola, este es un mensaje de prueba'
+                    ]
+                ]);
+                
+                $body = $response->getBody();
+                return $this->response->setJSON(json_decode($body));
+            }
+        }
         `,
             laravel: `
         <?php
-        // Laravel Example
+        namespace App\\Http\\Controllers;
+        
         use Illuminate\\Support\\Facades\\Http;
+        use Illuminate\\Http\\Request;
         
-        $response = Http::withToken('${token}')
-            ->post('${BASE_URL()}v1/gateway/sms/client/send', [
-                'phone' => '+59178877502',
-                'message' => 'Hola, este es un mensaje de prueba'
-            ]);
-        
-        return $response->json();
+        class SmsController extends Controller
+        {
+            public function sendSms(Request $request)
+            {
+                $response = Http::withToken('${token}')
+                    ->post('${BASE_URL()}v1/gateway/sms/client/send', [
+                        'phone' => '+59178877502',
+                        'message' => 'Hola, este es un mensaje de prueba'
+                    ]);
+                
+                return $response->json();
+            }
+        }
         `,
             python: `
         import requests
@@ -210,17 +241,17 @@ export function initClientSystem() {
         `
         };
 
-        const content = `<pre><code class="language-${lang}">${htmlEscape(examples[lang])}</code></pre>`;
+        const displayLang = ['curl', 'codeigniter', 'laravel'].includes(lang) ? 'php' : lang;
+        const content = `<pre><code class="language-${displayLang}">${htmlEscape(examples[lang])}</code></pre>`;
         setModalParameters(modalExampleApi, `API Example - ${lang.toUpperCase()}`, "modal-lg", false, "static", content, false);
 
-        // if (typeof Prism !== 'undefined' && Prism.highlightAll) {
-        //     setTimeout(() => {
-        //         Prism.highlightAll();
-        //     }, 0);
-        // } else {
-        //     console.warn('Prism.js no está disponible. El resaltado de sintaxis no se aplicará.');
-        // }
-        Prism.plugins.autoloader.loadLanguages(['php', 'bash'], function () {
+        Prism.plugins.autoloader.languages_path = 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/';
+        Prism.plugins.autoloader.use_minified = true;
+        if (!Prism.languages.curl) {
+            Prism.languages.curl = Prism.languages.bash;
+        }
+
+        Prism.plugins.autoloader.loadLanguages(['php', 'bash', 'javascript', 'python'], function () {
             setTimeout(() => {
                 Prism.highlightAll();
             }, 100);

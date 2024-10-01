@@ -15,15 +15,15 @@ class ClientController extends BaseController
         $this->clientSystemModel = new ClientSystemModel();
         $this->sendSmsModel = new SendSmsModel();
     }
-    public function send()
+    public function sendSms()
     {
         $rules = [
             'phone' => [
-                'label' => 'Número de teléfono',
+                'label' => lang('ClientControllerLang.phoneLabel'),
                 'rules' => 'required|numeric'
             ],
             'message' => [
-                'label' => 'Mensaje',
+                'label' => lang('ClientControllerLang.messageLabel'),
                 'rules' => 'required|string|max_length[160]|min_length[1]'
             ]
         ];
@@ -41,13 +41,13 @@ class ClientController extends BaseController
         if (!$clientSystem)
             return $this->response->setJSON([
                 'type' => 'error',
-                'message' => 'No se encontró el sistema del cliente o el token es inválido'
+                'message' => lang('ClientControllerLang.errorClientSystemNotFound')
             ]);
         $suscriptionPlan = $this->clientSystemModel->getUserLatestActiveSuscriptionSmsUsage($user->id);
         if (!$suscriptionPlan)
             return $this->response->setJSON([
                 'type' => 'error',
-                'message' => 'No se encontró un plan de suscripción activo'
+                'message' => lang('ClientControllerLang.errorNoActiveSubscription')
             ]);
 
         $insertedId =  $this->sendSmsModel->insert([
@@ -60,14 +60,15 @@ class ClientController extends BaseController
         if (!$insertedId)
             return $this->response->setJSON([
                 'type' => 'error',
-                'message' => 'No se pudo enviar el mensaje'
+                'message' => lang('ClientControllerLang.errorMessageNotSent')
             ]);
         return $this->response->setJSON([
             'type' => 'success',
-            'message' => 'Mensaje enviado correctamente'
+            'message' => lang('ClientControllerLang.successMessageSent')
         ]);
     }
-    public function index()
+
+    public function listSystems()
     {
         $data['suscriptionActive'] = $this->clientSystemModel->getUserLatestActiveSuscriptionSmsUsage(auth()->user()->id);
         $data['systems'] = $this->clientSystemModel->where(['id_users_cliente' => auth()->user()->id])->orderBy('id_sistema_cliente DESC')->findAll();
@@ -83,17 +84,17 @@ class ClientController extends BaseController
         }
 
         return view('gateway/sms/client/client_system_list', $data);
-        // $this->generateTokenForSystem();
     }
-    public function add()
+
+    public function addSystem()
     {
         $rules = [
             'nombre_sistema' => [
-                'label' => 'Nombre del sistema',
+                'label' => lang('ClientControllerLang.systemNameLabel'),
                 'rules' => 'required|string|max_length[100]|min_length[1]'
             ],
             'url_sistema' => [
-                'label' => 'URL del sistema',
+                'label' => lang('ClientControllerLang.systemUrlLabel'),
                 'rules' => 'required|valid_url|max_length[255]|min_length[1]'
             ]
         ];
@@ -120,22 +121,23 @@ class ClientController extends BaseController
         if (!$insertedId) {
             return $this->response->setJSON([
                 'type' => 'error',
-                'message' => 'No se pudo agregar el sistema'
+                'message' => lang('ClientControllerLang.errorSystemNotAdded')
             ]);
         }
 
         return $this->response->setJSON([
             'type' => 'success',
-            'message' => 'Sistema agregado correctamente'
+            'message' => lang('ClientControllerLang.successSystemAdded')
         ]);
     }
-    public function edit($id)
+
+    public function editSystem($id)
     {
         $system = $this->clientSystemModel->find($id);
         if (!$system) {
             return $this->response->setJSON([
                 'type' => 'error',
-                'message' => 'Sistema no encontrado'
+                'message' => lang('ClientControllerLang.errorSystemNotFound')
             ]);
         }
         return $this->response->setJSON([
@@ -145,19 +147,19 @@ class ClientController extends BaseController
         ]);
     }
 
-    public function update()
+    public function updateSystem()
     {
         $rules = [
             'id_sistema_cliente' => [
-                'label' => 'ID del sistema',
+                'label' => lang('ClientControllerLang.systemIdLabel'),
                 'rules' => 'required|integer'
             ],
             'nombre_sistema' => [
-                'label' => 'Nombre del sistema',
+                'label' => lang('ClientControllerLang.systemNameLabel'),
                 'rules' => 'required|string|max_length[100]|min_length[1]'
             ],
             'url_sistema' => [
-                'label' => 'URL del sistema',
+                'label' => lang('ClientControllerLang.systemUrlLabel'),
                 'rules' => 'required|valid_url|max_length[255]|min_length[1]'
             ]
         ];
@@ -181,15 +183,16 @@ class ClientController extends BaseController
         if (!$updated) {
             return $this->response->setJSON([
                 'type' => 'error',
-                'message' => 'No se pudo actualizar el sistema'
+                'message' => lang('ClientControllerLang.errorSystemNotUpdated')
             ]);
         }
 
         return $this->response->setJSON([
             'type' => 'success',
-            'message' => 'Sistema actualizado correctamente'
+            'message' => lang('ClientControllerLang.successSystemUpdated')
         ]);
     }
+
     public function regenerateSystemToken(int $idClientSystem)
     {
         $user = auth()->user();
@@ -197,16 +200,17 @@ class ClientController extends BaseController
         if (!$clientSystem)
             return $this->response->setJSON([
                 'type' => 'error',
-                'message' => 'No se encontró el sistema del cliente'
+                'message' => lang('ClientControllerLang.errorClientSystemNotFound')
             ]);
         $token = $this->generateTokenForSystem();
         $this->clientSystemModel->update($idClientSystem, ['token_api' => $token]);
         return $this->response->setJSON([
             'type' => 'success',
-            'message' => 'Token regenerado correctamente',
+            'message' => lang('ClientControllerLang.successTokenRegenerated'),
             'data' => ['token' => $token]
         ]);
     }
+
     private function generateTokenForSystem(): string
     {
         $token = auth()->user()->generateAccessToken('sms');

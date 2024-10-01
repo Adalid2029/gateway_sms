@@ -20,17 +20,17 @@ $routes->group('v1', static function ($routes) {
                 $routes->post('confirm-sent-message', 'Gateway\SMS\SupplierController::confirmSentMessage');
             });
             $routes->group('client', ['filter' => 'tokenAuth'], static function ($routes) {
-                $routes->post('send', 'Gateway\SMS\ClientController::send');
+                $routes->post('send', 'Gateway\SMS\ClientController::sendSms');
             });
         });
     });
 });
 $routes->group('client', static function ($routes) {
     $routes->group('system', static function ($routes) {
-        $routes->get('', 'Gateway\SMS\ClientController::index', ['as' => 'client/system/list']);
-        $routes->post('add', 'Gateway\SMS\ClientController::add', ['as' => 'client/system/add']);
-        $routes->get('edit/(:num)', 'Gateway\SMS\ClientController::edit/$1', ['as' => 'client/system/edit']);
-        $routes->post('update', 'Gateway\SMS\ClientController::update', ['as' => 'client/system/update']);
+        $routes->get('', 'Gateway\SMS\ClientController::listSystems', ['as' => 'client/system/list']);
+        $routes->post('add', 'Gateway\SMS\ClientController::addSystem', ['as' => 'client/system/add']);
+        $routes->get('edit/(:num)', 'Gateway\SMS\ClientController::editSystem/$1', ['as' => 'client/system/edit']);
+        $routes->post('update', 'Gateway\SMS\ClientController::updateSystem', ['as' => 'client/system/update']);
         $routes->get('regenerate-token/(:num)', 'Gateway\SMS\ClientController::regenerateSystemToken/$1', ['as' => 'client/system/regenerate-token']);
         $routes->get('report/(:num)', 'Gateway\SMS\ClientController::report/$1', ['as' => 'client/system/report']);
         $routes->get('general-report', 'Gateway\SMS\ClientController::generalReport', ['as' => 'client/system/general-report']);

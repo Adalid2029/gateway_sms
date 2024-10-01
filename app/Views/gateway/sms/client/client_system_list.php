@@ -50,7 +50,7 @@
                             <button id="add_system_btn" class="btn btn-primary" disabled>Agregar Sistema</button>
                         </div>
                         <div class="col-md-6 text-end">
-                            <button id="generalReportBtn" class="btn btn-secondary">Reporte general</button>
+                            <!-- <button id="generalReportBtn" class="btn btn-secondary">Reporte general</button> -->
                         </div>
                     </div>
                     <div id="system_cards_container" class="row" data-url-list="<?= $urlListSystem ?>"></div>
@@ -128,6 +128,7 @@
 <?= $this->section('script') ?>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
 <script type="module">
     import {
         initClientSystem

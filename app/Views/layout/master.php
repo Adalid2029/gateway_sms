@@ -47,7 +47,7 @@
         <div class="page-body-wrapper">
 
             <!-- Page Sidebar Start-->
-            <?= $this->include('Admin/layout/sidebar') ?>
+
             <!-- Page Sidebar Ends-->
 
             <div class="page-body">
