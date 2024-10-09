@@ -36,7 +36,11 @@ $routes->group('client', static function ($routes) {
         $routes->get('general-report', 'Gateway\SMS\ClientController::generalReport', ['as' => 'client/system/general-report']);
     });
 });
-
+$routes->group('apk', ['filter' => 'tokenAuth'], static function ($routes) {
+    $routes->get('list', 'ApkController::apkList', ['as' => 'apk/list']);
+    $routes->get('upgrade/(:num)', 'ApkController::apkUpgrade/$1', ['as' => 'apk/upgrade']);
+    $routes->get('download/(:segment)', 'ApkController::downloadApk/$1');
+});
 
 
 $routes->get('/', function () {

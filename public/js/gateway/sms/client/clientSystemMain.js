@@ -130,7 +130,7 @@ export function initClientSystem() {
         <?php
         $url = '${BASE_URL()}v1/gateway/sms/client/send';
         $data = [
-            'phone' => '+59178877502',
+            'phone' => '78877502',
             'message' => 'Hola, este es un mensaje de prueba'
         ];
         
@@ -167,7 +167,7 @@ export function initClientSystem() {
                         'Content-Type' => 'application/json'
                     ],
                     'json' => [
-                        'phone' => '+59178877502',
+                        'phone' => '78877502',
                         'message' => 'Hola, este es un mensaje de prueba'
                     ]
                 ]);
@@ -190,7 +190,7 @@ export function initClientSystem() {
             {
                 $response = Http::withToken('${token}')
                     ->post('${BASE_URL()}v1/gateway/sms/client/send', [
-                        'phone' => '+59178877502',
+                        'phone' => '78877502',
                         'message' => 'Hola, este es un mensaje de prueba'
                     ]);
                 
@@ -207,7 +207,7 @@ export function initClientSystem() {
             'Content-Type': 'application/json'
         }
         data = {
-            'phone': '+59178877502',
+            'phone': '78877502',
             'message': 'Hola, este es un mensaje de prueba'
         }
         
@@ -222,7 +222,7 @@ export function initClientSystem() {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                phone: '+59178877502',
+                phone: '78877502',
                 message: 'Hola, este es un mensaje de prueba'
             })
         })
@@ -235,7 +235,7 @@ export function initClientSystem() {
         --header 'Content-Type: application/json' \\
         --header 'Authorization: Bearer ${token}' \\
         --data '{
-            "phone":"+59178877502",
+            "phone":"78877502",
             "message": "Hola, este es un mensaje de prueba"
         }'
         `
