@@ -39,7 +39,7 @@ $routes->group('client', static function ($routes) {
 $routes->group('apk', ['filter' => 'tokenAuth'], static function ($routes) {
     $routes->get('list', 'ApkController::apkList', ['as' => 'apk/list']);
     $routes->get('upgrade/(:num)', 'ApkController::apkUpgrade/$1', ['as' => 'apk/upgrade']);
-    $routes->get('download/(:segment)', 'ApkController::downloadApk/$1');
+    $routes->get('download/(:segment)', 'ApkController::downloadApk/$1', ['as' => 'apk/download']);
 });
 
 

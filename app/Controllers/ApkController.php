@@ -72,7 +72,7 @@ class ApkController extends BaseController
             'data' => [
                 'version' => $nextVersion,
                 'filename' => $apkFilename,
-                'uri' => base_url("downloads/apk/{$apkFilename}")
+                'uri' => base_url(route_to('apk/download', $apkFilename))
             ]
         ], 200);
     }
