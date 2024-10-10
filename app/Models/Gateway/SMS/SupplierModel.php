@@ -56,17 +56,29 @@ class SupplierModel extends Model
             ->join('users', 'users.id = proveedor_sms.id_users_proveedor_sms')
             ->join('proveedor_envio_sms', 'proveedor_envio_sms.id_users_proveedor_sms = proveedor_sms.id_users_proveedor_sms', 'left')
             ->where('users.id', $userId)
-            ->where('proveedor_envio_sms.estado_envio', 'COMPLETADO')
             ->groupBy([
                 'users.id',
                 'proveedor_sms.id_users_proveedor_sms',
                 'proveedor_sms.limite_sms',
             ]);
 
-        // Si necesitas depurar la consulta
-        // var_dump($this->builder->getCompiledSelect());
+        if (!empty($where)) {
+            $this->where($where);
+        }
 
-        return $this->get()->getRowArray();
+        $result = $this->get()->getRowArray();
+
+        if (empty($result)) {
+            return [
+                'id' => $userId,
+                'id_users_proveedor_sms' => $userId,
+                'total_sms_sent' => 0,
+                'total_sms_cost' => 0,
+                'sms_limit' => 0,
+            ];
+        }
+
+        return $result;
     }
 
     public function getSentMessagesByDate(int $userId,   $tenDaysAgo,  $currentDate): ?array
