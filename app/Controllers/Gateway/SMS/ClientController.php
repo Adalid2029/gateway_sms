@@ -111,13 +111,6 @@ class ClientController extends BaseController
         }
 
         $user = auth()->user();
-        var_dump([
-            'id_users_cliente' => $user->id,
-            'nombre_sistema' => $data['nombre_sistema'],
-            'url_sistema' => $data['url_sistema'],
-            'token_api' => $this->generateTokenForSystem()
-        ]);
-        die();
         $insertedId = $this->clientSystemModel->insert([
             'id_users_cliente' => $user->id,
             'nombre_sistema' => $data['nombre_sistema'],
