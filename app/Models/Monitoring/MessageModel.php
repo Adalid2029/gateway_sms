@@ -72,13 +72,13 @@ class MessageModel extends Model
         foreach ($query as $row) {
             switch ($row['estado_envio']) {
                 case 'COMPLETADO':
-                    $result['sent'] = $row['count'];
+                    $result['sent'] = (int)$row['count'];
                     break;
                 case 'RECHAZADO':
-                    $result['rejected'] = $row['count'];
+                    $result['rejected'] = (int)$row['count'];
                     break;
                 case 'PROCESANDO':
-                    $result['pending'] = $row['count'];
+                    $result['pending'] = (int)$row['count'];
                     break;
             }
         }

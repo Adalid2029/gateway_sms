@@ -88,6 +88,9 @@
     </div>
 
     <script>
+        let messageStatusChart = null;
+
+
         function updateMessagesTable(page = 1, limit = 10, search = '') {
             $.ajax({
                 url: '/dashboard/messages',
@@ -145,65 +148,29 @@
             updateMessagesTable($('#messagesPagination button.bg-blue-500').text());
         }, 30000);
 
-        // Función para actualizar los datos del dashboard
         function updateDashboard(page = 1, limit = 10, search = '') {
-            // Simulamos la llamada AJAX con los datos proporcionados
-            const data = {
-                "activeProviders": 2,
-                "totalMessagesSent": 1,
-                "successRate": 25,
-                "messageStatus": {
-                    "sent": "1",
-                    "rejected": "3",
-                    "pending": 0
+            $.ajax({
+                url: '/dashboard/data',
+                method: 'GET',
+                data: {
+                    page: page,
+                    limit: limit,
+                    search: search
                 },
-                "providerActivity": [{
-                        "nombre": "JOSE LUIS",
-                        "messageCount": "4"
-                    },
-                    {
-                        "nombre": "GILMER RUDDY",
-                        "messageCount": "0"
-                    }
-                ],
-                "providers": [{
-                        "id": "1",
-                        "name": "JOSE LUIS",
-                        "messagesSent": "4",
-                        "last_activity": "2024-10-10 18:10:52",
-                        "active": 1
-                    },
-                    {
-                        "id": "2",
-                        "name": "GILMER RUDDY",
-                        "messagesSent": "0",
-                        "last_activity": null,
-                        "active": 1
-                    }
-                ],
-                "pagination": {
-                    "page": 1,
-                    "limit": 10,
-                    "total": 2
+                success: function(data) {
+                    $('#activeProviders').text(data.activeProviders);
+                    $('#totalMessagesSent').text(data.totalMessagesSent);
+                    $('#successRate').text(data.successRate + '%');
+
+                    updateMessageStatusChart(data.messageStatus);
+                    updateProviderActivityChart(data.providerActivity);
+                    updateProviderTable(data.providers);
+                    updatePagination(data.pagination);
+                },
+                error: function(error) {
+                    console.error('Error al obtener datos del dashboard:', error);
                 }
-            };
-
-            // Actualizar los contadores
-            $('#activeProviders').text(data.activeProviders);
-            $('#totalMessagesSent').text(data.totalMessagesSent);
-            $('#successRate').text(data.successRate + '%');
-
-            // Actualizar el gráfico de estado de mensajes
-            updateMessageStatusChart(data.messageStatus);
-
-            // Actualizar el gráfico de actividad de proveedores
-            updateProviderActivityChart(data.providerActivity);
-
-            // Actualizar la tabla de proveedores
-            updateProviderTable(data.providers);
-
-            // Actualizar la paginación
-            updatePagination(data.pagination);
+            });
         }
 
         function updatePagination(pagination) {
@@ -239,9 +206,47 @@
             });
         }
 
+        function updateMessageStatusChart(data) {
+            const ctx = document.getElementById('messageStatusChart').getContext('2d');
+
+            // Destruir el gráfico existente si existe
+            if (messageStatusChart) {
+                messageStatusChart.destroy();
+            }
+
+            // Crear un nuevo gráfico
+            messageStatusChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: ['Enviados', 'Rechazados', 'Pendientes'],
+                    datasets: [{
+                        data: [data.sent, data.rejected, data.pending],
+                        backgroundColor: ['#10B981', '#EF4444', '#F59E0B']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                        }
+                    }
+                }
+            });
+        }
+
+        let providerActivityChart = null;
+
         function updateProviderActivityChart(data) {
             const ctx = document.getElementById('providerActivityChart').getContext('2d');
-            new Chart(ctx, {
+
+            // Destruir el gráfico existente si existe
+            if (providerActivityChart) {
+                providerActivityChart.destroy();
+            }
+
+            // Crear un nuevo gráfico
+            providerActivityChart = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: data.map(item => item.nombre),

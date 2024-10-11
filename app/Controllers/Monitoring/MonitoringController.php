@@ -44,4 +44,33 @@ class MonitoringController extends BaseController
 
         return $this->respond($data);
     }
+    public function getDashboardData()
+    {
+        $providerModel = new MonitoringModel();
+        $messageModel = new MessageModel();
+
+        $page = (int)$this->request->getVar('page') ?? 1;
+        $limit = (int)$this->request->getVar('limit') ?? 10;
+        $search = $this->request->getVar('search') ?? '';
+
+        $messageStatus = $messageModel->getMessageStatusCounts();
+        $totalMessagesSent = $messageStatus['sent'] + $messageStatus['rejected'] + $messageStatus['pending'];
+        $successRate = $totalMessagesSent > 0 ? round(($messageStatus['sent'] / $totalMessagesSent) * 100, 2) : 0;
+
+        $data = [
+            'activeProviders' => $providerModel->getActiveProvidersCount(),
+            'totalMessagesSent' => $totalMessagesSent,
+            'successRate' => $successRate,
+            'messageStatus' => $messageStatus,
+            'providerActivity' => $providerModel->getProviderActivity(),
+            'providers' => $providerModel->getProvidersDetails($page, $limit, $search),
+            'pagination' => [
+                'page' => $page,
+                'limit' => $limit,
+                'total' => $providerModel->getTotalProvidersCount($search)
+            ]
+        ];
+
+        return $this->respond($data);
+    }
 }
