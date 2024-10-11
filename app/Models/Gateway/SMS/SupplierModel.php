@@ -125,6 +125,7 @@ class SupplierModel extends Model
             ->where('envio_sms.fecha_envio >', $fiveMinutesAgo)
             ->orderBy('envio_sms.fecha_envio', 'ASC')
             ->limit(1);
+        $builder->get()->getRowArray();
         return $builder->get()->getRowArray();
     }
     public function assignPendingSmsToProvider(array $smsData): ?int
