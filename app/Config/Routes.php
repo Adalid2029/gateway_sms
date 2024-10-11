@@ -43,6 +43,40 @@ $routes->group('apk', ['filter' => 'tokenAuth'], static function ($routes) {
 });
 
 
+
+
+
+
+// Nuevas rutas para el sistema de monitoreo
+$routes->group('dashboard', static function ($routes) {
+    $routes->get('/', 'Monitoring\MonitoringController::index');
+    $routes->get('data', 'Monitoring\MonitoringController::getDashboardData');
+});
+
+$routes->get('dashboard/messages', 'Monitoring\MonitoringController::getMessagesData');
+
+
+$routes->cli('analyze:apache-logs', 'ApacheLogAnalyzer::run');
+
+// Rutas para la API del proveedor
+$routes->group('api/provider', ['filter' => 'tokenAuth'], static function ($routes) {
+    $routes->get('activity', 'ProviderController::getActivity');
+    $routes->get('messages', 'ProviderController::getMessages');
+    $routes->post('update-status', 'ProviderController::updateStatus');
+});
+
+// Rutas para reportes
+$routes->group('reports', ['filter' => 'auth'], static function ($routes) {
+    $routes->get('provider/(:num)', 'ReportController::providerReport/$1');
+    $routes->get('messages', 'ReportController::messagesReport');
+    $routes->get('activity', 'ReportController::activityReport');
+});
+
+
+
+
+
+
 $routes->get('/', function () {
     return redirect()->to('dashboards/default-dashboard');
 });
