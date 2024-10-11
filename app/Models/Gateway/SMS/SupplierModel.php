@@ -121,13 +121,22 @@ class SupplierModel extends Model
         $builder = $this->db->table('envio_sms');
         $builder->select('envio_sms.*')
             ->join('proveedor_envio_sms', 'envio_sms.id_envio_sms = proveedor_envio_sms.id_envio_sms', 'left')
-            ->where('proveedor_envio_sms.id_proveedor_envio_sms', null)
-            ->where('envio_sms.fecha_envio >', $fiveMinutesAgo)
+            ->where('proveedor_envio_sms.id_proveedor_envio_sms IS NULL')
+            ->where('envio_sms.fecha_envio <=', $currentTime)
             ->orderBy('envio_sms.fecha_envio', 'ASC')
             ->limit(1);
-        $builder->get()->getRowArray();
-        return $builder->get()->getRowArray();
+
+        $result = $builder->get()->getRowArray();
+
+        if ($result) {
+            if (strtotime($result['fecha_envio']) >= strtotime($fiveMinutesAgo)) {
+                return $result;
+            }
+        }
+
+        return null;
     }
+
     public function assignPendingSmsToProvider(array $smsData): ?int
     {
         $builder = $this->db->table('proveedor_envio_sms');
