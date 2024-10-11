@@ -38,7 +38,7 @@ class SupplierController extends ResourceController
     {
         $user = auth()->user();
         $pendingMessage = $this->supplierModel->getPendingSmsWithoutProvider();
-
+        die();
         if (!$pendingMessage) {
             return $this->response
                 ->setStatusCode(ResponseInterface::HTTP_NOT_FOUND)

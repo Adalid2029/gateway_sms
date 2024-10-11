@@ -10,10 +10,12 @@ class ClientController extends BaseController
 {
     private $clientSystemModel;
     private $sendSmsModel;
+    private $user;
     function __construct()
     {
         $this->clientSystemModel = new ClientSystemModel();
         $this->sendSmsModel = new SendSmsModel();
+        $this->user = auth()->user();
     }
     public function sendSms()
     {
@@ -34,16 +36,21 @@ class ClientController extends BaseController
                 'message' => $this->validator->getErrors()
             ]);
         }
-        $user = auth()->user();
         $token = explode(' ', $this->request->getHeaderLine('Authorization'))[1] ?? "";
-        $clientSystem = $this->clientSystemModel->where(['id_users_cliente' => $user->id, 'token_api' => $token])->first();
-
+        $clientSystem = $this->clientSystemModel->where(['id_users_cliente' => $this->user->id, 'token_api' => $token])->first();
         if (!$clientSystem)
             return $this->response->setJSON([
                 'type' => 'error',
                 'message' => lang('ClientControllerLang.errorClientSystemNotFound')
             ]);
-        $suscriptionPlan = $this->clientSystemModel->getUserLatestActiveSuscriptionSmsUsage($user->id);
+
+        // Validacion si la peticion nos realizan desde el dominio no verificado
+        if (getenv('CI_ENVIRONMENT') === 'production') {
+            $domain = $this->getRequestedUrlInfo('domain');
+            if ($clientSystem['url_sistema'] !== $domain)
+                return $this->response->setJSON(['type' => 'error', 'message' => lang('ClientControllerLang.errorDomainMismatch')]);
+        }
+        $suscriptionPlan = $this->clientSystemModel->getUserLatestActiveSuscriptionSmsUsage($this->user->id);
         if (!$suscriptionPlan)
             return $this->response->setJSON([
                 'type' => 'error',
@@ -110,9 +117,8 @@ class ClientController extends BaseController
             ]);
         }
 
-        $user = auth()->user();
         $insertedId = $this->clientSystemModel->insert([
-            'id_users_cliente' => $user->id,
+            'id_users_cliente' => $this->user->id,
             'nombre_sistema' => $data['nombre_sistema'],
             'url_sistema' => $data['url_sistema'],
             'token_api' => $this->generateTokenForSystem()
@@ -195,8 +201,7 @@ class ClientController extends BaseController
 
     public function regenerateSystemToken(int $idClientSystem)
     {
-        $user = auth()->user();
-        $clientSystem = $this->clientSystemModel->where(['id_users_cliente' => $user->id, 'id_sistema_cliente' => $idClientSystem])->first();
+        $clientSystem = $this->clientSystemModel->where(['id_users_cliente' => $this->user->id, 'id_sistema_cliente' => $idClientSystem])->first();
         if (!$clientSystem)
             return $this->response->setJSON([
                 'type' => 'error',
@@ -215,5 +220,31 @@ class ClientController extends BaseController
     {
         $token = auth()->user()->generateAccessToken('sms');
         return $token->raw_token;
+    }
+    private function getRequestedUrlInfo(string $part = 'all'): string
+    {
+        $fullURL = current_url();
+        $parsedURL = parse_url($fullURL);
+        $protocol = isset($parsedURL['scheme']) ? $parsedURL['scheme'] . '://' : '';
+        $domain = $parsedURL['host'] ?? 'unknown';
+        $fullDomain = $protocol . $domain;
+        switch ($part) {
+            case 'protocol':
+                return $protocol;
+            case 'domain':
+                return $domain;
+            case 'full_domain':
+                return $fullDomain;
+            case 'full_url':
+                return $fullURL;
+            case 'all':
+            default:
+                return json_encode([
+                    'protocol' => $protocol,
+                    'domain' => $domain,
+                    'full_domain' => $fullDomain,
+                    'full_url' => $fullURL
+                ]);
+        }
     }
 }
