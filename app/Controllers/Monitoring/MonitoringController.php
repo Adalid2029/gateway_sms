@@ -63,7 +63,7 @@ class MonitoringController extends BaseController
         $totalMessagesSent = $messageStatus['sent'] + $messageStatus['rejected'] + $messageStatus['pending'];
         $successRate = $totalMessagesSent > 0 ? round(($messageStatus['sent'] / $totalMessagesSent) * 100, 2) : 0;
 
-        $activeProviders = $this->logParser->getActiveProviders(5); // 5 seconds threshold
+        $activeProviders = $this->logParser->getActiveProviders(600);
         $providerDetails = $this->providerModel->getProvidersDetails($page, $limit, $search);
         foreach ($providerDetails as &$provider) {
             $activeProvider = array_filter($activeProviders, function ($ap) use ($provider) {
