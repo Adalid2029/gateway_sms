@@ -96,7 +96,8 @@ class MessageModel extends Model
                                 proveedor_sms.nombre as nombre_proveedor')
             ->join('envio_sms', 'envio_sms.id_envio_sms = proveedor_envio_sms.id_envio_sms')
             ->join('sistema_cliente', 'sistema_cliente.id_sistema_cliente = envio_sms.id_sistema_cliente')
-            ->join('proveedor_sms', 'proveedor_sms.id_users_proveedor_sms = proveedor_envio_sms.id_users_proveedor_sms');
+            ->join('proveedor_sms', 'proveedor_sms.id_users_proveedor_sms = proveedor_envio_sms.id_users_proveedor_sms')
+            ->orderBy('id_proveedor_envio_sms', 'DESC');
 
         if (!empty($search)) {
             $query->groupStart()
