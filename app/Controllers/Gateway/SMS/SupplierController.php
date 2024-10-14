@@ -39,13 +39,13 @@ class SupplierController extends ResourceController
         $user = auth()->user();
         $startTime = microtime(true);
 
-        $this->logger->info("PROVIDER_ACTIVITY - ID: {$user->id} - ACTION: pending_messages_request - START");
+        $this->logger->notice("PROVIDER_ACTIVITY - ID: {$user->id} - ACTION: pending_messages_request - START");
 
         $pendingMessage = $this->supplierModel->getPendingSmsWithoutProvider();
         if (!$pendingMessage) {
             $endTime = microtime(true);
             $executionTime = $endTime - $startTime;
-            $this->logger->info("PROVIDER_ACTIVITY - ID: {$user->id} - ACTION: pending_messages_request - END - DURATION: {$executionTime} - RESULT: no_pending_messages");
+            $this->logger->notice("PROVIDER_ACTIVITY - ID: {$user->id} - ACTION: pending_messages_request - END - DURATION: {$executionTime} - RESULT: no_pending_messages");
             return $this->response
                 ->setStatusCode(ResponseInterface::HTTP_NOT_FOUND)
                 ->setJSON([
@@ -90,7 +90,7 @@ class SupplierController extends ResourceController
 
         $endTime = microtime(true);
         $executionTime = $endTime - $startTime;
-        $this->logger->info("PROVIDER_ACTIVITY - ID: {$user->id} - ACTION: pending_messages_request - END - DURATION: {$executionTime} - RESULT: success");
+        $this->logger->notice("PROVIDER_ACTIVITY - ID: {$user->id} - ACTION: pending_messages_request - END - DURATION: {$executionTime} - RESULT: success");
 
         return $this->response
             ->setJSON([
