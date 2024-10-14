@@ -115,26 +115,17 @@ class SupplierModel extends Model
 
     public function getPendingSmsWithoutProvider(): ?array
     {
-        $currentTime = date('Y-m-d H:i:s');
         $fiveMinutesAgo = date('Y-m-d H:i:s', strtotime('-5 minutes'));
-
         $builder = $this->db->table('envio_sms');
         $builder->select('envio_sms.*')
             ->join('proveedor_envio_sms', 'envio_sms.id_envio_sms = proveedor_envio_sms.id_envio_sms', 'left')
             ->where('proveedor_envio_sms.id_proveedor_envio_sms IS NULL')
-            ->where('envio_sms.fecha_envio <=', $currentTime)
+            ->where('envio_sms.fecha_envio >=', $fiveMinutesAgo)
             ->orderBy('envio_sms.fecha_envio', 'ASC')
             ->limit(1);
 
         $result = $builder->get()->getRowArray();
-
-        if ($result) {
-            if (strtotime($result['fecha_envio']) >= strtotime($fiveMinutesAgo)) {
-                return $result;
-            }
-        }
-
-        return null;
+        return $result;
     }
 
     public function assignPendingSmsToProvider(array $smsData): ?int
