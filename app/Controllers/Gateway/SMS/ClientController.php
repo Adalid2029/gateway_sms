@@ -45,11 +45,11 @@ class ClientController extends BaseController
             ]);
 
         // Validacion si la peticion nos realizan desde el dominio no verificado
-        if (getenv('CI_ENVIRONMENT') === 'production') {
-            $domain = $this->getRequestedUrlInfo('domain');
-            if ($clientSystem['url_sistema'] !== $domain)
-                return $this->response->setJSON(['type' => 'error', 'message' => lang('ClientControllerLang.errorDomainMismatch')]);
-        }
+        // if (getenv('CI_ENVIRONMENT') === 'production') {
+        //     $domain = $this->getRequestedUrlInfo('domain');
+        //     if ($clientSystem['url_sistema'] !== $domain)
+        //         return $this->response->setJSON(['type' => 'error', 'message' => lang('ClientControllerLang.errorDomainMismatch')]);
+        // }
         $suscriptionPlan = $this->clientSystemModel->getUserLatestActiveSuscriptionSmsUsage($this->user->id);
         if (!$suscriptionPlan)
             return $this->response->setJSON([
