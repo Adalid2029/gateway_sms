@@ -54,9 +54,10 @@ class MonitoringModel extends Model
     public function getProviderActivity()
     {
         $db = \Config\Database::connect();
+        $today = date('Y-m-d');
         $subQuery = $db->table('proveedor_envio_sms')
             ->select('id_users_proveedor_sms, COUNT(*) as message_count')
-            ->where('fecha_asignacion_sms >=', date('Y-m-d H:i:s', strtotime('-24 hours')))
+            ->where('date(fecha_asignacion_sms)', $today)
             ->groupBy('id_users_proveedor_sms');
 
         return $this->select('proveedor_sms.nombre, COALESCE(sub.message_count, 0) as messageCount')

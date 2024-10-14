@@ -251,7 +251,7 @@
                 data: {
                     labels: data.map(item => item.nombre),
                     datasets: [{
-                        label: 'Mensajes enviados en las últimas 24 horas',
+                        label: 'Mensajes enviados el dia de hoy',
                         data: data.map(item => item.messageCount),
                         backgroundColor: '#3B82F6'
                     }]
