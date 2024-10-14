@@ -60,6 +60,31 @@
                 </table>
             </div>
         </div>
+        <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+            <h2 class="text-xl font-semibold mb-4">Detalle de Proveedores en Tiempo Real</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div class="bg-blue-100 p-4 rounded-lg">
+                    <h3 class="text-lg font-semibold mb-2">Proveedores Activos (Real-time)</h3>
+                    <div id="activeProvidersReal" class="text-3xl font-bold text-blue-600">-</div>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full table-auto">
+                    <thead>
+                        <tr class="bg-gray-200">
+                            <th class="px-4 py-2">ID</th>
+                            <th class="px-4 py-2">Nombre</th>
+                            <th class="px-4 py-2">Estado</th>
+                            <th class="px-4 py-2">Última Actividad</th>
+                            <th class="px-4 py-2">Acciones Recientes</th>
+                        </tr>
+                    </thead>
+                    <tbody id="providerRealTableBody">
+                        <!-- Real-time provider data will be loaded here dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
         <!-- Agrega esto después de la tabla de proveedores -->
         <div class="bg-white p-6 rounded-lg shadow-md mb-8">
             <h2 class="text-xl font-semibold mb-4">Todos los Mensajes</h2>
@@ -153,11 +178,12 @@
                 url: '/dashboard/data',
                 method: 'GET',
                 data: {
-                    page: page,
-                    limit: limit,
-                    search: search
+                    page,
+                    limit,
+                    search
                 },
                 success: function(data) {
+                    // Update existing elements
                     $('#activeProviders').text(data.activeProviders);
                     $('#totalMessagesSent').text(data.totalMessagesSent);
                     $('#successRate').text(data.successRate + '%');
@@ -166,10 +192,38 @@
                     updateProviderActivityChart(data.providerActivity);
                     updateProviderTable(data.providers);
                     updatePagination(data.pagination);
+
+                    // Update new real-time provider details
+                    $('#activeProvidersReal').text(data.activeProvidersReal);
+                    updateRealProviderTable(data.providersReal);
                 },
                 error: function(error) {
                     console.error('Error al obtener datos del dashboard:', error);
                 }
+            });
+        }
+
+        function updateRealProviderTable(providers) {
+            const tableBody = $('#providerRealTableBody');
+            tableBody.empty();
+            providers.forEach(provider => {
+                const recentActionsHtml = provider.recent_actions.map(action =>
+                    `<div>${action.action} - ${action.result} (${action.duration}s)</div>`
+                ).join('');
+
+                tableBody.append(`
+                    <tr>
+                        <td class="border px-4 py-2">${provider.id}</td>
+                        <td class="border px-4 py-2">${provider.name}</td>
+                        <td class="border px-4 py-2">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${provider.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                ${provider.active ? 'Activo' : 'Inactivo'}
+                            </span>
+                        </td>
+                        <td class="border px-4 py-2">${provider.last_activity ? moment(provider.last_activity).fromNow() : 'N/A'}</td>
+                        <td class="border px-4 py-2">${recentActionsHtml}</td>
+                    </tr>
+                `);
             });
         }
 
