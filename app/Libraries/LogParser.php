@@ -20,9 +20,16 @@ class LogParser
         if ($handle) {
             while (($line = fgets($handle)) !== false) {
                 if (strpos($line, 'PROVIDER_ACTIVITY') !== false) {
-                    preg_match('/ID: (\d+).*ACTION: (\w+).*END.*DURATION: ([\d.]+).*RESULT: (\w+)/', $line, $matches);
+                    // Extraer la fecha y hora del log
+                    preg_match('/(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})/', $line, $dateMatches);
+                    if (empty($dateMatches)) {
+                        continue;  // Skip this line if we can't extract the date
+                    }
+                    $timestamp = strtotime($dateMatches[1]);
+
+                    // Extraer los detalles de la actividad
+                    preg_match('/ID: (\d+).*ACTION: (\w+).*DURATION: ([\d.]+).*RESULT: (\w+)/', $line, $matches);
                     if (count($matches) === 5) {
-                        $timestamp = strtotime(substr($line, 0, 19));
                         if ($currentTime - $timestamp <= $timeThreshold) {
                             $providerId = $matches[1];
                             $action = $matches[2];

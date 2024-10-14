@@ -42,6 +42,7 @@ class MonitoringController extends BaseController
         $messages = $messageModel->getAllMessages($limit, $offset, $search);
         $totalMessages = $messageModel->getTotalMessagesCount($search);
 
+
         $data = [
             'messages' => $messages,
             'pagination' => [
@@ -63,8 +64,9 @@ class MonitoringController extends BaseController
         $totalMessagesSent = $messageStatus['sent'] + $messageStatus['rejected'] + $messageStatus['pending'];
         $successRate = $totalMessagesSent > 0 ? round(($messageStatus['sent'] / $totalMessagesSent) * 100, 2) : 0;
 
-        $activeProviders = $this->logParser->getActiveProviders(600);
+        $activeProviders = $this->logParser->getActiveProviders(1200);  // 20 minutos
         $providerDetails = $this->providerModel->getProvidersDetails($page, $limit, $search);
+
         foreach ($providerDetails as &$provider) {
             $activeProvider = array_filter($activeProviders, function ($ap) use ($provider) {
                 return $ap['id'] == $provider['id'];
@@ -79,6 +81,7 @@ class MonitoringController extends BaseController
                 $provider['recent_actions'] = [];
             }
         }
+
         $data = [
             'activeProviders' => $this->providerModel->getActiveProvidersCount(),
             'totalMessagesSent' => $totalMessagesSent,
