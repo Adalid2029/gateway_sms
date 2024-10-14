@@ -64,7 +64,7 @@ class MonitoringController extends BaseController
         $totalMessagesSent = $messageStatus['sent'] + $messageStatus['rejected'] + $messageStatus['pending'];
         $successRate = $totalMessagesSent > 0 ? round(($messageStatus['sent'] / $totalMessagesSent) * 100, 2) : 0;
 
-        $activeProviders = $this->logParser->getActiveProviders(1200);  // 20 minutos
+        $activeProviders = $this->logParser->getActiveProviders(300);  // 20 minutos
         $providerDetails = $this->providerModel->getProvidersDetails($page, $limit, $search);
 
         foreach ($providerDetails as &$provider) {
@@ -74,7 +74,13 @@ class MonitoringController extends BaseController
             $provider['active'] = !empty($activeProvider);
             if (!empty($activeProvider)) {
                 $activeProviderData = reset($activeProvider);
+                $lastActivityTime = strtotime($activeProviderData['last_activity']);
+                $currentTime = time();
+                $timeDiff = $currentTime - $lastActivityTime;
+
                 $provider['last_activity'] = $activeProviderData['last_activity'];
+                $provider['last_activity_seconds_ago'] = $timeDiff;
+                $provider['server_current_time'] = date('Y-m-d H:i:s', $currentTime);
                 $provider['recent_actions'] = $activeProviderData['actions'];
 
                 // Calcular estadísticas

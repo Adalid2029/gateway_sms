@@ -208,47 +208,86 @@
             let totalRequests = 0;
 
             providers.forEach(provider => {
-                totalRequests += provider.stats.total_requests;
+                if (!provider || typeof provider !== 'object') {
+                    console.error('Invalid provider data:', provider);
+                    return;
+                }
+
+                totalRequests += provider.stats?.total_requests || 0;
                 const chartId = `chart-${provider.id}`;
 
-                tableBody.append(`
-                    <tr>
-                        <td class="border px-4 py-2">${provider.id}</td>
-                        <td class="border px-4 py-2">${provider.name}</td>
-                        <td class="border px-4 py-2">
-                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${provider.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
-                                ${provider.active ? 'Activo' : 'Inactivo'}
-                            </span>
-                        </td>
-                        <td class="border px-4 py-2">${provider.last_activity ? moment(provider.last_activity).fromNow() : 'N/A'}</td>
-                        <td class="border px-4 py-2">${provider.stats.total_requests}</td>
-                        <td class="border px-4 py-2">${provider.stats.avg_duration.toFixed(4)}s</td>
-                        <td class="border px-4 py-2"><canvas id="${chartId}" width="200" height="100"></canvas></td>
-                    </tr>
-                `);
+                let lastActivityDisplay = provider.last_activity ? moment(provider.last_activity).fromNow() : 'N/A';
+                let exactTimeDisplay = provider.last_activity ? moment(provider.last_activity).format('YYYY-MM-DD HH:mm:ss') : 'N/A';
 
-                // Create activity chart
-                const ctx = document.getElementById(chartId).getContext('2d');
-                new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: provider.recent_actions.map((_, index) => index + 1),
-                        datasets: [{
-                            label: 'Duración de solicitud',
-                            data: provider.recent_actions.map(action => parseFloat(action.duration)),
-                            borderColor: 'rgb(75, 192, 192)',
-                            tension: 0.1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        scales: {
-                            y: {
-                                beginAtZero: true
+                let recentActionsHtml = 'No hay datos recientes';
+                if (provider.recent_actions && provider.recent_actions.length > 0) {
+                    recentActionsHtml = provider.recent_actions.map(action =>
+                        `${action.action} - ${action.result} (${action.duration}s)<br>`
+                    ).join('');
+                }
+
+                tableBody.append(`
+            <tr>
+                <td class="border px-4 py-2">${provider.id || 'N/A'}</td>
+                <td class="border px-4 py-2">${provider.name || 'N/A'}</td>
+                <td class="border px-4 py-2">
+                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${provider.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                        ${provider.active ? 'Activo' : 'Inactivo'}
+                    </span>
+                </td>
+                <td class="border px-4 py-2">
+                    ${lastActivityDisplay}<br>
+                    <small>(${exactTimeDisplay})</small>
+                </td>
+                <td class="border px-4 py-2">${provider.stats?.total_requests || 0}</td>
+                <td class="border px-4 py-2">${(provider.stats?.avg_duration || 0).toFixed(4)}s</td>
+                
+                <td class="border px-4 py-2"><canvas id="${chartId}" width="200" height="100"></canvas></td>
+            </tr>
+        `);
+
+                // Create activity chart (if there's data)
+                if (provider.recent_actions && provider.recent_actions.length > 0) {
+                    const ctx = document.getElementById(chartId).getContext('2d');
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: provider.recent_actions.map(action => moment(action.timestamp).format('HH:mm:ss')),
+                            datasets: [{
+                                label: 'Duración de solicitud',
+                                data: provider.recent_actions.map(action => parseFloat(action.duration)),
+                                borderColor: 'rgb(75, 192, 192)',
+                                tension: 0.1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            },
+                            plugins: {
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            let label = context.dataset.label || '';
+                                            if (label) {
+                                                label += ': ';
+                                            }
+                                            if (context.parsed.y !== null) {
+                                                label += context.parsed.y.toFixed(4) + 's';
+                                            }
+                                            return label;
+                                        }
+                                    }
+                                }
                             }
                         }
-                    }
-                });
+                    });
+                } else {
+                    document.getElementById(chartId).innerHTML = 'No hay datos suficientes para el gráfico';
+                }
             });
 
             $('#activeProvidersReal').text(providers.filter(p => p.active).length);
