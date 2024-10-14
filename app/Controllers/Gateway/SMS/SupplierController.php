@@ -37,8 +37,15 @@ class SupplierController extends ResourceController
     public function pendingMessages()
     {
         $user = auth()->user();
+        $startTime = microtime(true);
+
+        $this->logger->info("PROVIDER_ACTIVITY - ID: {$user->id} - ACTION: pending_messages_request - START");
+
         $pendingMessage = $this->supplierModel->getPendingSmsWithoutProvider();
         if (!$pendingMessage) {
+            $endTime = microtime(true);
+            $executionTime = $endTime - $startTime;
+            $this->logger->info("PROVIDER_ACTIVITY - ID: {$user->id} - ACTION: pending_messages_request - END - DURATION: {$executionTime} - RESULT: no_pending_messages");
             return $this->response
                 ->setStatusCode(ResponseInterface::HTTP_NOT_FOUND)
                 ->setJSON([
@@ -52,6 +59,9 @@ class SupplierController extends ResourceController
         $assignMessageToProvider = $this->supplierModel->assignPendingSmsToProvider($pendingMessage);
 
         if (!$assignMessageToProvider) {
+            $endTime = microtime(true);
+            $executionTime = $endTime - $startTime;
+            $this->logger->error("PROVIDER_ACTIVITY - ID: {$user->id} - ACTION: pending_messages_request - END - DURATION: {$executionTime} - RESULT: assign_failed");
             return $this->response
                 ->setStatusCode(ResponseInterface::HTTP_INTERNAL_SERVER_ERROR)
                 ->setJSON([
@@ -67,6 +77,9 @@ class SupplierController extends ResourceController
         ]);
 
         if (!$processingSms) {
+            $endTime = microtime(true);
+            $executionTime = $endTime - $startTime;
+            $this->logger->error("PROVIDER_ACTIVITY - ID: {$user->id} - ACTION: pending_messages_request - END - DURATION: {$executionTime} - RESULT: processing_not_found");
             return $this->response
                 ->setStatusCode(ResponseInterface::HTTP_INTERNAL_SERVER_ERROR)
                 ->setJSON([
@@ -75,12 +88,17 @@ class SupplierController extends ResourceController
                 ]);
         }
 
+        $endTime = microtime(true);
+        $executionTime = $endTime - $startTime;
+        $this->logger->info("PROVIDER_ACTIVITY - ID: {$user->id} - ACTION: pending_messages_request - END - DURATION: {$executionTime} - RESULT: success");
+
         return $this->response
             ->setJSON([
                 'type' => 'success',
                 'data' => $processingSms
             ]);
     }
+
     public function confirmSentMessage()
     {
         $user = auth()->user();
