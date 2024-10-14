@@ -194,7 +194,6 @@
                     updatePagination(data.pagination);
 
                     // Update new real-time provider details
-                    $('#activeProvidersReal').text(data.activeProvidersReal);
                     updateRealProviderTable(data.providersReal);
                 },
                 error: function(error) {
@@ -206,10 +205,11 @@
         function updateRealProviderTable(providers) {
             const tableBody = $('#providerRealTableBody');
             tableBody.empty();
+            let totalRequests = 0;
+
             providers.forEach(provider => {
-                const recentActionsHtml = provider.recent_actions.map(action =>
-                    `<div>${action.action} - ${action.result} (${action.duration}s)</div>`
-                ).join('');
+                totalRequests += provider.stats.total_requests;
+                const chartId = `chart-${provider.id}`;
 
                 tableBody.append(`
                     <tr>
@@ -221,10 +221,38 @@
                             </span>
                         </td>
                         <td class="border px-4 py-2">${provider.last_activity ? moment(provider.last_activity).fromNow() : 'N/A'}</td>
-                        <td class="border px-4 py-2">${recentActionsHtml}</td>
+                        <td class="border px-4 py-2">${provider.stats.total_requests}</td>
+                        <td class="border px-4 py-2">${provider.stats.avg_duration.toFixed(4)}s</td>
+                        <td class="border px-4 py-2"><canvas id="${chartId}" width="200" height="100"></canvas></td>
                     </tr>
                 `);
+
+                // Create activity chart
+                const ctx = document.getElementById(chartId).getContext('2d');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: provider.recent_actions.map((_, index) => index + 1),
+                        datasets: [{
+                            label: 'Duración de solicitud',
+                            data: provider.recent_actions.map(action => parseFloat(action.duration)),
+                            borderColor: 'rgb(75, 192, 192)',
+                            tension: 0.1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
             });
+
+            $('#activeProvidersReal').text(providers.filter(p => p.active).length);
+            $('#totalRequestsReal').text(totalRequests);
         }
 
         function updatePagination(pagination) {

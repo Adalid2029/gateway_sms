@@ -76,11 +76,28 @@ class MonitoringController extends BaseController
                 $activeProviderData = reset($activeProvider);
                 $provider['last_activity'] = $activeProviderData['last_activity'];
                 $provider['recent_actions'] = $activeProviderData['actions'];
+
+                // Calcular estadísticas
+                $totalRequests = count($activeProviderData['actions']);
+                $totalDuration = array_sum(array_column($activeProviderData['actions'], 'duration'));
+                $avgDuration = $totalRequests > 0 ? $totalDuration / $totalRequests : 0;
+
+                $provider['stats'] = [
+                    'total_requests' => $totalRequests,
+                    'avg_duration' => round($avgDuration, 4),
+                    'last_request_time' => end($activeProviderData['actions'])['timestamp'] ?? null,
+                ];
             } else {
                 $provider['last_activity'] = null;
                 $provider['recent_actions'] = [];
+                $provider['stats'] = [
+                    'total_requests' => 0,
+                    'avg_duration' => 0,
+                    'last_request_time' => null,
+                ];
             }
         }
+
 
         $data = [
             'activeProviders' => $this->providerModel->getActiveProvidersCount(),
