@@ -113,19 +113,33 @@ class SupplierModel extends Model
         return $messagesByDate;
     }
 
-    public function getPendingSmsWithoutProvider(): ?array
+    public function getPendingSmsWithoutProvider(int $userId): ?array
     {
         $fiveMinutesAgo = date('Y-m-d H:i:s', strtotime('-5 minutes'));
-        $builder = $this->db->table('envio_sms');
-        $builder->select('envio_sms.*')
+
+        $builder = $this->db->table('envio_sms')
+            ->select('envio_sms.*, proveedor_envio_sms.id_users_proveedor_sms, proveedor_envio_sms.estado_envio')
+            ->join('proveedor_envio_sms', 'envio_sms.id_envio_sms = proveedor_envio_sms.id_envio_sms')
+            ->where('proveedor_envio_sms.estado_envio', 'RECHAZADO')
+            ->where('proveedor_envio_sms.id_users_proveedor_sms !=', $userId)
+            ->where('envio_sms.fecha_envio >=', $fiveMinutesAgo)
+            ->orderBy('envio_sms.fecha_envio', 'ASC')
+            ->limit(1);
+
+        $result = $builder->get()->getRowArray();
+        if ($result)
+            return $result;
+
+
+        $builder = $this->db->table('envio_sms')
+            ->select('envio_sms.*')
             ->join('proveedor_envio_sms', 'envio_sms.id_envio_sms = proveedor_envio_sms.id_envio_sms', 'left')
             ->where('proveedor_envio_sms.id_proveedor_envio_sms IS NULL')
             ->where('envio_sms.fecha_envio >=', $fiveMinutesAgo)
             ->orderBy('envio_sms.fecha_envio', 'ASC')
             ->limit(1);
 
-        $result = $builder->get()->getRowArray();
-        return $result;
+        return $builder->get()->getRowArray();
     }
 
     public function assignPendingSmsToProvider(array $smsData): ?int

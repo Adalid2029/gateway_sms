@@ -41,7 +41,7 @@ class SupplierController extends ResourceController
 
         $this->logger->alert("PROVIDER_ACTIVITY - ID: {$user->id} - ACTION: pending_messages_request - START");
 
-        $pendingMessage = $this->supplierModel->getPendingSmsWithoutProvider();
+        $pendingMessage = $this->supplierModel->getPendingSmsWithoutProvider($user->id);
         if (!$pendingMessage) {
             $endTime = microtime(true);
             $executionTime = $endTime - $startTime;
