@@ -30,8 +30,6 @@ class TokenAuthFilter implements FilterInterface
                 'message' => 'Invalid token'
             ])->setStatusCode(401);
         }
-
-        // Token is valid, you can access the user with auth()->user()
     }
 
     public function after(RequestInterface $request, ResponseInterface $response, $arguments = null)
