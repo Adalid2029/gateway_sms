@@ -81,7 +81,43 @@ class SupplierModel extends Model
         return $result;
     }
 
-    public function getSentMessagesByDate(int $userId,   $tenDaysAgo,  $currentDate): ?array
+    public function getPaymentEconomicInfoPrivider(int $userId, array $where = []): array|null
+    {
+        $this->select([
+            'pago_proveedor.id_pago_proveedor',
+            "CONCAT(
+                CASE EXTRACT(MONTH FROM fecha_inicio_periodo)
+                    WHEN 1 THEN 'Ene'
+                    WHEN 2 THEN 'Feb'
+                    WHEN 3 THEN 'Mar'
+                    WHEN 4 THEN 'Abr'
+                    WHEN 5 THEN 'May'
+                    WHEN 6 THEN 'Jun'
+                    WHEN 7 THEN 'Jul'
+                    WHEN 8 THEN 'Ago'
+                    WHEN 9 THEN 'Sep'
+                    WHEN 10 THEN 'Oct'
+                    WHEN 11 THEN 'Nov'
+                    WHEN 12 THEN 'Dic'
+                END,
+                ' ',
+                EXTRACT(YEAR FROM fecha_inicio_periodo)
+            ) as periodo",
+            'pago_proveedor.cantidad_sms',
+            'pago_proveedor.monto',
+            'pago_proveedor.comprobante'
+        ])
+            ->join('pago_proveedor', 'proveedor_sms.id_users_proveedor_sms = pago_proveedor.id_users_proveedor_sms')
+            ->where('proveedor_sms.id_users_proveedor_sms', $userId);
+
+        if (!empty($where)) {
+            $this->where($where);
+        }
+
+        return $this->get()->getResultArray();
+    }
+
+    public function getSentMessagesByDate(int $userId, $tenDaysAgo, $currentDate): ?array
     {
         $builder = $this->db->table('proveedor_envio_sms');
         $builder->select('id_users_proveedor_sms, COUNT(*) as total_mensajes, DATE_FORMAT(fecha_respuesta_sms, "%Y-%m-%d") as fecha_respuesta')

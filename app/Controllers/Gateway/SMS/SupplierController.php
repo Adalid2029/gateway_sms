@@ -10,17 +10,19 @@ class SupplierController extends ResourceController
 {
     protected $format = 'json';
     protected $supplierModel;
+    protected $user;
     function __construct()
     {
         $this->supplierModel = new SupplierModel();
+        $this->user = auth()->user();
     }
     public function detailsDashboard()
     {
-        $user = auth()->user();
-        $economicInfo = $this->supplierModel->getEconomicInfoProvider($user->id);
+        $economicInfo = $this->supplierModel->getEconomicInfoProvider($this->user->id);
         $currentDate = date('Y-m-d');
         $tenDaysAgo = date('Y-m-d', strtotime('-10 days', strtotime($currentDate)));
-        $economicInfo['sms_send_last_days'] = $this->supplierModel->getSentMessagesByDate($user->id, $tenDaysAgo, $currentDate);
+        $economicInfo['sms_send_last_days'] = $this->supplierModel->getSentMessagesByDate($this->user->id, $tenDaysAgo, $currentDate);
+        $economicInfo['payment_economic'] = $this->supplierModel->getPaymentEconomicInfoPrivider($this->user->id);
         if (!$economicInfo)
             return $this->response
                 ->setStatusCode(ResponseInterface::HTTP_NOT_FOUND)
@@ -36,16 +38,15 @@ class SupplierController extends ResourceController
     }
     public function pendingMessages()
     {
-        $user = auth()->user();
         $startTime = microtime(true);
 
-        $this->logger->alert("PROVIDER_ACTIVITY - ID: {$user->id} - ACTION: pending_messages_request - START");
+        $this->logger->alert("PROVIDER_ACTIVITY - ID: {$this->user->id} - ACTION: pending_messages_request - START");
 
-        $pendingMessage = $this->supplierModel->getPendingSmsWithoutProvider($user->id);
+        $pendingMessage = $this->supplierModel->getPendingSmsWithoutProvider($this->user->id);
         if (!$pendingMessage) {
             $endTime = microtime(true);
             $executionTime = $endTime - $startTime;
-            $this->logger->alert("PROVIDER_ACTIVITY - ID: {$user->id} - ACTION: pending_messages_request - END - DURATION: {$executionTime} - RESULT: no_pending_messages");
+            $this->logger->alert("PROVIDER_ACTIVITY - ID: {$this->user->id} - ACTION: pending_messages_request - END - DURATION: {$executionTime} - RESULT: no_pending_messages");
             return $this->response
                 ->setStatusCode(ResponseInterface::HTTP_NOT_FOUND)
                 ->setJSON([
@@ -54,14 +55,14 @@ class SupplierController extends ResourceController
                 ]);
         }
 
-        $pendingMessage['id_users_proveedor_sms'] = $user->id;
+        $pendingMessage['id_users_proveedor_sms'] = $this->user->id;
 
         $assignMessageToProvider = $this->supplierModel->assignPendingSmsToProvider($pendingMessage);
 
         if (!$assignMessageToProvider) {
             $endTime = microtime(true);
             $executionTime = $endTime - $startTime;
-            $this->logger->error("PROVIDER_ACTIVITY - ID: {$user->id} - ACTION: pending_messages_request - END - DURATION: {$executionTime} - RESULT: assign_failed");
+            $this->logger->error("PROVIDER_ACTIVITY - ID: {$this->user->id} - ACTION: pending_messages_request - END - DURATION: {$executionTime} - RESULT: assign_failed");
             return $this->response
                 ->setStatusCode(ResponseInterface::HTTP_INTERNAL_SERVER_ERROR)
                 ->setJSON([
@@ -71,7 +72,7 @@ class SupplierController extends ResourceController
         }
 
         $processingSms = $this->supplierModel->getProcessingSmsForProvider([
-            'proveedor_envio_sms.id_users_proveedor_sms' => $user->id,
+            'proveedor_envio_sms.id_users_proveedor_sms' => $this->user->id,
             'proveedor_envio_sms.estado_envio' => 'PROCESANDO',
             'proveedor_envio_sms.id_proveedor_envio_sms' => $assignMessageToProvider
         ]);
@@ -79,7 +80,7 @@ class SupplierController extends ResourceController
         if (!$processingSms) {
             $endTime = microtime(true);
             $executionTime = $endTime - $startTime;
-            $this->logger->error("PROVIDER_ACTIVITY - ID: {$user->id} - ACTION: pending_messages_request - END - DURATION: {$executionTime} - RESULT: processing_not_found");
+            $this->logger->error("PROVIDER_ACTIVITY - ID: {$this->user->id} - ACTION: pending_messages_request - END - DURATION: {$executionTime} - RESULT: processing_not_found");
             return $this->response
                 ->setStatusCode(ResponseInterface::HTTP_INTERNAL_SERVER_ERROR)
                 ->setJSON([
@@ -90,7 +91,7 @@ class SupplierController extends ResourceController
 
         $endTime = microtime(true);
         $executionTime = $endTime - $startTime;
-        $this->logger->alert("PROVIDER_ACTIVITY - ID: {$user->id} - ACTION: pending_messages_request - END - DURATION: {$executionTime} - RESULT: success");
+        $this->logger->alert("PROVIDER_ACTIVITY - ID: {$this->user->id} - ACTION: pending_messages_request - END - DURATION: {$executionTime} - RESULT: success");
 
         return $this->response
             ->setJSON([
@@ -101,7 +102,6 @@ class SupplierController extends ResourceController
 
     public function confirmSentMessage()
     {
-        $user = auth()->user();
         $rules = [
             'id_proveedor_envio_sms' => 'required|numeric',
             'estado_envio' => 'required|in_list[COMPLETADO,RECHAZADO]'
@@ -117,7 +117,7 @@ class SupplierController extends ResourceController
         }
 
         $data = (array) $this->request->getJSON();
-        $data['id_users_proveedor_sms'] = $user->id;
+        $data['id_users_proveedor_sms'] = $this->user->id;
         $data['fecha_respuesta_sms'] = date('Y-m-d H:i:s');
 
         $updatedMessage = $this->supplierModel->confirmSentMessage($data);
