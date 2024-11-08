@@ -67,7 +67,7 @@ class SupplierModel extends Model
         }
 
         $result = $this->get()->getRowArray();
-
+        var_dump($this->getLastQuery());
         if (empty($result)) {
             return [
                 'id' => $userId,
@@ -81,7 +81,7 @@ class SupplierModel extends Model
         return $result;
     }
 
-    public function getPaymentEconomicInfoPrivider(int $userId, array $where = []): array|null
+    public function getPaymentEconomicInfoProvider(int $userId, array $where = []): array|null
     {
         $this->select([
             'pago_proveedor.id_pago_proveedor',

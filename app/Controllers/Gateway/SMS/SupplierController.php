@@ -22,7 +22,7 @@ class SupplierController extends ResourceController
         $currentDate = date('Y-m-d');
         $tenDaysAgo = date('Y-m-d', strtotime('-10 days', strtotime($currentDate)));
         $economicInfo['sms_send_last_days'] = $this->supplierModel->getSentMessagesByDate($this->user->id, $tenDaysAgo, $currentDate);
-        $economicInfo['payment_economic'] = $this->supplierModel->getPaymentEconomicInfoPrivider($this->user->id);
+        $economicInfo['payment_economic'] = $this->supplierModel->getPaymentEconomicInfoProvider($this->user->id);
         if (!$economicInfo)
             return $this->response
                 ->setStatusCode(ResponseInterface::HTTP_NOT_FOUND)
