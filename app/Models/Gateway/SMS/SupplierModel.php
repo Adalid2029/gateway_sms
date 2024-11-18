@@ -153,20 +153,28 @@ class SupplierModel extends Model
     {
         $fiveMinutesAgo = date('Y-m-d H:i:s', strtotime('-5 minutes'));
 
+        $completedSubquery = $this->db->table('proveedor_envio_sms')
+            ->select('1')
+            ->where('id_envio_sms = envio_sms.id_envio_sms')
+            ->where('estado_envio', 'COMPLETADO');
+
+        // Buscar SMS rechazados que no tengan envíos completados
         $builder = $this->db->table('envio_sms')
             ->select('envio_sms.*, proveedor_envio_sms.id_users_proveedor_sms, proveedor_envio_sms.estado_envio')
             ->join('proveedor_envio_sms', 'envio_sms.id_envio_sms = proveedor_envio_sms.id_envio_sms')
             ->where('proveedor_envio_sms.estado_envio', 'RECHAZADO')
             ->where('proveedor_envio_sms.id_users_proveedor_sms !=', $userId)
             ->where('envio_sms.fecha_envio >=', $fiveMinutesAgo)
+            ->where("NOT EXISTS ({$completedSubquery->getCompiledSelect()})")
             ->orderBy('envio_sms.fecha_envio', 'ASC')
             ->limit(1);
 
         $result = $builder->get()->getRowArray();
-        if ($result)
+        if ($result) {
             return $result;
+        }
 
-
+        // Buscar SMS sin intentos de envío
         $builder = $this->db->table('envio_sms')
             ->select('envio_sms.*')
             ->join('proveedor_envio_sms', 'envio_sms.id_envio_sms = proveedor_envio_sms.id_envio_sms', 'left')
