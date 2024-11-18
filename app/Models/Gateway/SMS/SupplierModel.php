@@ -67,7 +67,6 @@ class SupplierModel extends Model
         }
 
         $result = $this->get()->getRowArray();
-        var_dump($this->getLastQuery());
         if (empty($result)) {
             return [
                 'id' => $userId,
