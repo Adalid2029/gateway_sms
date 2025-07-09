@@ -50,7 +50,7 @@
                             <button id="add_system_btn" class="btn btn-primary" disabled>Agregar Sistema</button>
                         </div>
                         <div class="col-md-6 text-end">
-                            <!-- <button id="generalReportBtn" class="btn btn-secondary">Reporte general</button> -->
+                            <button id="generalReportBtn" class="btn btn-secondary">Reporte general</button>
                         </div>
                     </div>
                     <div id="system_cards_container" class="row" data-url-list="<?= $urlListSystem ?>"></div>
