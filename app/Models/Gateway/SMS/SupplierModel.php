@@ -164,7 +164,7 @@ class SupplierModel extends Model
             ->join('proveedor_envio_sms', 'envio_sms.id_envio_sms = proveedor_envio_sms.id_envio_sms')
             ->where('proveedor_envio_sms.estado_envio', 'RECHAZADO')
             ->where('proveedor_envio_sms.id_users_proveedor_sms !=', $userId)
-            // ->where('envio_sms.fecha_envio >=', $fiveMinutesAgo)
+            ->where('envio_sms.fecha_envio >=', $fiveMinutesAgo)
             ->where('envio_sms.fecha_envio <=', $now)
             ->where("NOT EXISTS ({$completedSubquery->getCompiledSelect()})")
             ->orderBy('envio_sms.fecha_envio', 'ASC')
