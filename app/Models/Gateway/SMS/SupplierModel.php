@@ -151,7 +151,6 @@ class SupplierModel extends Model
     public function getPendingSmsWithoutProvider(int $userId): ?array
     {
         $fiveMinutesAgo = date('Y-m-d H:i:s', strtotime('-5 minutes'));
-        $now = date('Y-m-d H:i:s');
 
         $completedSubquery = $this->db->table('proveedor_envio_sms')
             ->select('1')
@@ -165,7 +164,6 @@ class SupplierModel extends Model
             ->where('proveedor_envio_sms.estado_envio', 'RECHAZADO')
             ->where('proveedor_envio_sms.id_users_proveedor_sms !=', $userId)
             ->where('envio_sms.fecha_envio >=', $fiveMinutesAgo)
-            ->where('envio_sms.fecha_envio <=', $now)
             ->where("NOT EXISTS ({$completedSubquery->getCompiledSelect()})")
             ->orderBy('envio_sms.fecha_envio', 'ASC')
             ->limit(1);
