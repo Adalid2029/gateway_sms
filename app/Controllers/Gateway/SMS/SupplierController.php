@@ -48,10 +48,10 @@ class SupplierController extends ResourceController
             $executionTime = $endTime - $startTime;
             $this->logger->alert("PROVIDER_ACTIVITY - ID: {$this->user->id} - ACTION: pending_messages_request - END - DURATION: {$executionTime} - RESULT: no_pending_messages");
             return $this->response
-                ->setStatusCode(ResponseInterface::HTTP_NOT_FOUND)
+                ->setStatusCode(ResponseInterface::HTTP_OK)
                 ->setJSON([
-                    'type' => 'error',
-                    'message' => 'No se encontraron mensajes pendientes'
+                    'type' => 'success',
+                    'data' => null
                 ]);
         }
 
