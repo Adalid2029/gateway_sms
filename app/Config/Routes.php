@@ -6,7 +6,11 @@ use CodeIgniter\Router\RouteCollection;
  * @var RouteCollection $routes
  */
 service('auth')->routes($routes);
-$routes->get('/', 'Home::index');
+// $routes->get('/', 'Home::index');
+$routes->get('/', function () {
+    return redirect()->to('/login');
+});
+
 $routes->group('v1', static function ($routes) {
     $routes->group('auth', static function ($routes) {
         $routes->post('mobile-login', 'Security\AuthController::mobileLogin');
