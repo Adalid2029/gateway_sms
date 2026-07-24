@@ -19,6 +19,21 @@ class ClientController extends BaseController
     }
     public function sendSms()
     {
+        return $this->sendMessageByChannel('SMS');
+    }
+
+    public function sendWhatsapp()
+    {
+        return $this->sendMessageByChannel('WHATSAPP');
+    }
+
+    public function sendTelegram()
+    {
+        return $this->sendMessageByChannel('TELEGRAM');
+    }
+
+    private function sendMessageByChannel(string $channel)
+    {
         $rules = [
             'phone' => [
                 'label' => lang('ClientControllerLang.phoneLabel'),
@@ -62,6 +77,7 @@ class ClientController extends BaseController
             'id_sistema_cliente' => $clientSystem['id_sistema_cliente'],
             'numero_destino' => $data['phone'],
             'mensaje' => $data['message'],
+            'canal_envio' => $channel,
             'fecha_envio' => date('Y-m-d H:i:s'),
         ]);
         if (!$insertedId)

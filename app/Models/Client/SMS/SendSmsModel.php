@@ -12,7 +12,7 @@ class SendSmsModel extends Model
     protected $returnType       = 'array';
     protected $useSoftDeletes   = false;
     protected $protectFields    = true;
-    protected $allowedFields    = ['id_suscripcion_plan', 'id_sistema_cliente', 'numero_destino', 'mensaje', 'fecha_envio'];
+    protected $allowedFields    = ['id_suscripcion_plan', 'id_sistema_cliente', 'numero_destino', 'mensaje', 'canal_envio', 'fecha_envio'];
 
     protected bool $allowEmptyInserts = false;
     protected bool $updateOnlyChanged = true;

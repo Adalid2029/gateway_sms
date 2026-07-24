@@ -148,7 +148,7 @@ class SupplierModel extends Model
         return $messagesByDate;
     }
 
-    public function getPendingSmsWithoutProvider(int $userId): ?array
+    public function getPendingSmsWithoutProvider(int $userId, string $channel = 'SMS'): ?array
     {
         $fiveMinutesAgo = date('Y-m-d H:i:s', strtotime('-5 minutes'));
         $now = date('Y-m-d H:i:s');
@@ -157,12 +157,15 @@ class SupplierModel extends Model
         $completedSubquery = $this->db->table('proveedor_envio_sms')
             ->select('1')
             ->where('id_envio_sms = envio_sms.id_envio_sms')
-            ->where('estado_envio', 'COMPLETADO');
+            ->where('estado_envio', 'COMPLETADO')
+            ->where('canal_envio', $channel);
 
-        // Buscar SMS rechazados que no tengan envíos completados
+        // Buscar mensajes rechazados del mismo canal que no tengan envíos completados.
         $builder = $this->db->table('envio_sms')
             ->select('envio_sms.*, proveedor_envio_sms.id_users_proveedor_sms, proveedor_envio_sms.estado_envio')
             ->join('proveedor_envio_sms', 'envio_sms.id_envio_sms = proveedor_envio_sms.id_envio_sms')
+            ->where('envio_sms.canal_envio', $channel)
+            ->where('proveedor_envio_sms.canal_envio', $channel)
             ->where('proveedor_envio_sms.estado_envio', 'RECHAZADO')
             ->where('proveedor_envio_sms.id_users_proveedor_sms !=', $userId)
             ->where('envio_sms.fecha_envio >=', $fiveMinutesAgo)
@@ -176,10 +179,11 @@ class SupplierModel extends Model
             return $result;
         }
 
-        // Buscar SMS sin intentos de envío
+        // Buscar mensajes del canal sin intentos de envío.
         $builder = $this->db->table('envio_sms')
             ->select('envio_sms.*')
-            ->join('proveedor_envio_sms', 'envio_sms.id_envio_sms = proveedor_envio_sms.id_envio_sms', 'left')
+            ->join('proveedor_envio_sms', 'envio_sms.id_envio_sms = proveedor_envio_sms.id_envio_sms AND proveedor_envio_sms.canal_envio = ' . $this->db->escape($channel), 'left')
+            ->where('envio_sms.canal_envio', $channel)
             ->where('proveedor_envio_sms.id_proveedor_envio_sms IS NULL')
             ->where('envio_sms.fecha_envio >=', $fiveMinutesAgo)
             ->where('envio_sms.fecha_envio <=', $now)
@@ -195,6 +199,7 @@ class SupplierModel extends Model
         $result = $builder->insert([
             'id_users_proveedor_sms' => $smsData['id_users_proveedor_sms'],
             'id_envio_sms' => $smsData['id_envio_sms'],
+            'canal_envio' => $smsData['canal_envio'] ?? 'SMS',
             'fecha_asignacion_sms' => date('Y-m-d H:i:s'),
             'estado_envio' => 'PROCESANDO',
         ]);
@@ -218,6 +223,7 @@ class SupplierModel extends Model
         $builder = $this->db->table('proveedor_envio_sms');
         $builder->where('id_proveedor_envio_sms', $data['id_proveedor_envio_sms'])
             ->where('id_users_proveedor_sms', $data['id_users_proveedor_sms'])
+            ->where('canal_envio', $data['canal_envio'] ?? 'SMS')
             ->where('estado_envio', 'PROCESANDO');
 
         $update = $builder->update([
@@ -231,7 +237,8 @@ class SupplierModel extends Model
 
         return $this->getProcessingSmsForProvider([
             'proveedor_envio_sms.id_proveedor_envio_sms' => $data['id_proveedor_envio_sms'],
-            'proveedor_envio_sms.id_users_proveedor_sms' => $data['id_users_proveedor_sms']
+            'proveedor_envio_sms.id_users_proveedor_sms' => $data['id_users_proveedor_sms'],
+            'proveedor_envio_sms.canal_envio' => $data['canal_envio'] ?? 'SMS',
         ]);
     }
 }

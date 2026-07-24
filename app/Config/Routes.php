@@ -29,8 +29,20 @@ $routes->group('v1', static function ($routes) {
         });
         $routes->group('whatsapp', static function ($routes) {
             $routes->group('supplier', ['filter' => 'tokenAuth'], static function ($routes) {
-                $routes->get('pending-messages', 'Gateway\SMS\SupplierController::pendingMessages');
-                $routes->post('confirm-sent-message', 'Gateway\SMS\SupplierController::confirmSentMessage');
+                $routes->get('pending-messages', 'Gateway\SMS\SupplierController::pendingMessages/WHATSAPP');
+                $routes->post('confirm-sent-message', 'Gateway\SMS\SupplierController::confirmSentMessage/WHATSAPP');
+            });
+            $routes->group('client', ['filter' => 'tokenAuth'], static function ($routes) {
+                $routes->post('send', 'Gateway\SMS\ClientController::sendWhatsapp');
+            });
+        });
+        $routes->group('telegram', static function ($routes) {
+            $routes->group('supplier', ['filter' => 'tokenAuth'], static function ($routes) {
+                $routes->get('pending-messages', 'Gateway\SMS\SupplierController::pendingMessages/TELEGRAM');
+                $routes->post('confirm-sent-message', 'Gateway\SMS\SupplierController::confirmSentMessage/TELEGRAM');
+            });
+            $routes->group('client', ['filter' => 'tokenAuth'], static function ($routes) {
+                $routes->post('send', 'Gateway\SMS\ClientController::sendTelegram');
             });
         });
     });
