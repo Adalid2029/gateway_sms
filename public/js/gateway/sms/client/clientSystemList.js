@@ -17,7 +17,7 @@ export async function loadSystems(urlList, systemCardsContainer) {
         renderSuscriptionInfo(suscriptionActive, suscriptionInfoEl);
 
         systemCardsContainer.innerHTML = '';
-        systems.forEach(system => {
+        (systems || []).forEach(system => {
             const cardEl = createSystemCard(system);
             systemCardsContainer.appendChild(cardEl);
         });

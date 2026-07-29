@@ -1,5 +1,15 @@
 import { BASE_URL } from "/js/helpers/gateway.js"
 export function renderSuscriptionInfo(suscription, containerEl) {
+    if (!containerEl) return;
+
+    if (!suscription) {
+        containerEl.innerHTML = `
+            <h5>Sin suscripcion activa</h5>
+            <span class="text-muted">No hay un plan vigente o ya no tiene SMS disponibles.</span>
+        `;
+        return;
+    }
+
     containerEl.innerHTML = `
         <h5>PLAN ${suscription.nombre}: ${suscription.cantidad_sms_contratado} SMS</h5>
         <span>Expira el ${new Date(suscription.fecha_fin).toLocaleDateString()}</span>
