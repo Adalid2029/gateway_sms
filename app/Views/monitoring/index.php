@@ -30,6 +30,19 @@
             </div>
         </div>
 
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold mb-4">Activos por Heartbeat</h2>
+                <div id="activeProvidersHeartbeat" class="text-4xl font-bold text-emerald-600">-</div>
+                <p class="text-sm text-gray-500 mt-2">Estado calculado desde latidos recientes del dispositivo.</p>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold mb-4">Activos por Logs</h2>
+                <div id="activeProvidersReal" class="text-4xl font-bold text-blue-600">-</div>
+                <p class="text-sm text-gray-500 mt-2">Mecanismo legado usado como respaldo temporal.</p>
+            </div>
+        </div>
+
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
             <div class="bg-white p-6 rounded-lg shadow-md">
                 <h2 class="text-xl font-semibold mb-4">Mensajes por Estado</h2>
@@ -59,24 +72,21 @@
                     </tbody>
                 </table>
             </div>
+            <div id="pagination" class="mt-4"></div>
         </div>
         <div class="bg-white p-6 rounded-lg shadow-md mb-8">
             <h2 class="text-xl font-semibold mb-4">Detalle de Proveedores en Tiempo Real</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div class="bg-blue-100 p-4 rounded-lg">
-                    <h3 class="text-lg font-semibold mb-2">Proveedores Activos (Real-time)</h3>
-                    <div id="activeProvidersReal" class="text-3xl font-bold text-blue-600">-</div>
-                </div>
-            </div>
             <div class="overflow-x-auto">
                 <table class="w-full table-auto">
                     <thead>
                         <tr class="bg-gray-200">
                             <th class="px-4 py-2">ID</th>
                             <th class="px-4 py-2">Nombre</th>
-                            <th class="px-4 py-2">Estado</th>
-                            <th class="px-4 py-2">Última Actividad</th>
-                            <th class="px-4 py-2">Acciones Recientes</th>
+                            <th class="px-4 py-2">Heartbeat</th>
+                            <th class="px-4 py-2">Último Latido</th>
+                            <th class="px-4 py-2">Dispositivo</th>
+                            <th class="px-4 py-2">Servicio y Red</th>
+                            <th class="px-4 py-2">Respaldo Logs</th>
                         </tr>
                     </thead>
                     <tbody id="providerRealTableBody">
@@ -187,6 +197,7 @@
                     $('#activeProviders').text(data.activeProviders);
                     $('#totalMessagesSent').text(data.totalMessagesSent);
                     $('#successRate').text(data.successRate + '%');
+                    $('#activeProvidersHeartbeat').text(data.activeProvidersHeartbeat ?? 0);
 
                     updateMessageStatusChart(data.messageStatus);
                     updateProviderActivityChart(data.providerActivity);
@@ -205,7 +216,6 @@
         function updateRealProviderTable(providers) {
             const tableBody = $('#providerRealTableBody');
             tableBody.empty();
-            let totalRequests = 0;
 
             providers.forEach(provider => {
                 if (!provider || typeof provider !== 'object') {
@@ -213,85 +223,105 @@
                     return;
                 }
 
-                totalRequests += provider.stats?.total_requests || 0;
-                const chartId = `chart-${provider.id}`;
-
-                let lastActivityDisplay = provider.last_activity ? moment(provider.last_activity).fromNow() : 'N/A';
-                let exactTimeDisplay = provider.last_activity ? moment(provider.last_activity).format('YYYY-MM-DD HH:mm:ss') : 'N/A';
-
-                let recentActionsHtml = 'No hay datos recientes';
-                if (provider.recent_actions && provider.recent_actions.length > 0) {
-                    recentActionsHtml = provider.recent_actions.map(action =>
-                        `${action.action} - ${action.result} (${action.duration}s)<br>`
-                    ).join('');
-                }
+                const deviceDetails = provider.device?.details || {};
+                const heartbeatBadge = getHeartbeatBadge(provider.heartbeat_status, provider.heartbeat_severity);
+                const lastHeartbeatDisplay = formatHeartbeatAge(provider.heartbeat_last_seconds_ago);
+                const deviceSummary = buildDeviceSummary(deviceDetails);
+                const serviceSummary = buildServiceSummary(deviceDetails);
+                const legacyLogBadge = provider.legacy_log_active
+                    ? '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">Activo por logs</span>'
+                    : '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-slate-100 text-slate-700">Sin actividad en logs</span>';
 
                 tableBody.append(`
             <tr>
                 <td class="border px-4 py-2">${provider.id || 'N/A'}</td>
                 <td class="border px-4 py-2">${provider.name || 'N/A'}</td>
                 <td class="border px-4 py-2">
-                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${provider.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
-                        ${provider.active ? 'Activo' : 'Inactivo'}
-                    </span>
+                    ${heartbeatBadge}
+                    <div class="text-xs text-gray-500 mt-2">${provider.heartbeat_message || 'Sin diagnóstico'}</div>
                 </td>
                 <td class="border px-4 py-2">
-                    ${lastActivityDisplay}<br>
-                    <small>(${exactTimeDisplay})</small>
+                    ${lastHeartbeatDisplay}
                 </td>
-                <td class="border px-4 py-2">${provider.stats?.total_requests || 0}</td>
-                <td class="border px-4 py-2">${(provider.stats?.avg_duration || 0).toFixed(4)}s</td>
-                
-                <td class="border px-4 py-2"><canvas id="${chartId}" width="200" height="100"></canvas></td>
+                <td class="border px-4 py-2">${deviceSummary}</td>
+                <td class="border px-4 py-2">${serviceSummary}</td>
+                <td class="border px-4 py-2">${legacyLogBadge}</td>
             </tr>
         `);
-
-                // Create activity chart (if there's data)
-                if (provider.recent_actions && provider.recent_actions.length > 0) {
-                    const ctx = document.getElementById(chartId).getContext('2d');
-                    new Chart(ctx, {
-                        type: 'line',
-                        data: {
-                            labels: provider.recent_actions.map(action => moment(action.timestamp).format('HH:mm:ss')),
-                            datasets: [{
-                                label: 'Duración de solicitud',
-                                data: provider.recent_actions.map(action => parseFloat(action.duration)),
-                                borderColor: 'rgb(75, 192, 192)',
-                                tension: 0.1
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            scales: {
-                                y: {
-                                    beginAtZero: true
-                                }
-                            },
-                            plugins: {
-                                tooltip: {
-                                    callbacks: {
-                                        label: function(context) {
-                                            let label = context.dataset.label || '';
-                                            if (label) {
-                                                label += ': ';
-                                            }
-                                            if (context.parsed.y !== null) {
-                                                label += context.parsed.y.toFixed(4) + 's';
-                                            }
-                                            return label;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    });
-                } else {
-                    document.getElementById(chartId).innerHTML = 'No hay datos suficientes para el gráfico';
-                }
             });
 
             $('#activeProvidersReal').text(providers.filter(p => p.active).length);
-            $('#totalRequestsReal').text(totalRequests);
+        }
+
+        function getHeartbeatBadge(status, severity) {
+            const severityClasses = {
+                success: 'bg-green-100 text-green-800',
+                warning: 'bg-yellow-100 text-yellow-800',
+                danger: 'bg-red-100 text-red-800'
+            };
+
+            const className = severityClasses[severity] || 'bg-slate-100 text-slate-700';
+            const label = status || 'SIN DATOS';
+
+            return `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${className}">${label}</span>`;
+        }
+
+        function formatHeartbeatAge(secondsAgo) {
+            if (secondsAgo === null || secondsAgo === undefined) {
+                return '<span class="text-sm text-slate-500">Sin heartbeat registrado</span>';
+            }
+
+            const seconds = Number(secondsAgo);
+
+            if (Number.isNaN(seconds)) {
+                return '<span class="text-sm text-slate-500">Tiempo no disponible</span>';
+            }
+
+            return `
+                <div class="font-semibold text-slate-800">Hace ${seconds} segundos</div>
+                <div class="text-xs text-slate-500">Heartbeat calculado por el servidor</div>
+            `;
+        }
+
+        function buildDeviceSummary(details) {
+            const model = details.modelo || 'Dispositivo no reportado';
+            const manufacturer = details.fabricante || 'Fabricante no reportado';
+            const appVersion = details.version_app || 'N/A';
+            const buildNumber = details.numero_build ?? 'N/A';
+            const battery = details.porcentaje_bateria ?? 'N/A';
+
+            return `
+                <div class="text-sm text-slate-800">
+                    <div class="font-semibold">${model}</div>
+                    <div>${manufacturer}</div>
+                    <div>App ${appVersion} build ${buildNumber}</div>
+                    <div>Batería: ${battery}${battery === 'N/A' ? '' : '%'}</div>
+                </div>
+            `;
+        }
+
+        function buildServiceSummary(details) {
+            const serviceState = details.estado_servicio || 'UNKNOWN';
+            const networkType = details.tipo_red || 'UNKNOWN';
+            const networkValidated = formatBoolean(details.red_validada, 'No reportada');
+            const simAvailable = formatBoolean(details.sim_disponible, 'No reportada');
+
+            return `
+                <div class="text-sm text-slate-800">
+                    <div><span class="font-semibold">Servicio:</span> ${serviceState}</div>
+                    <div><span class="font-semibold">Red:</span> ${networkType}</div>
+                    <div><span class="font-semibold">Red validada:</span> ${networkValidated}</div>
+                    <div><span class="font-semibold">SIM:</span> ${simAvailable}</div>
+                </div>
+            `;
+        }
+
+        function formatBoolean(value, fallback) {
+            if (value === null || value === undefined || value === '') {
+                return fallback;
+            }
+
+            return Number(value) === 1 ? 'Sí' : 'No';
         }
 
         function updatePagination(pagination) {
@@ -303,28 +333,6 @@
             }
 
             $('#pagination').html(paginationHtml);
-        }
-
-        function updateMessageStatusChart(data) {
-            const ctx = document.getElementById('messageStatusChart').getContext('2d');
-            new Chart(ctx, {
-                type: 'pie',
-                data: {
-                    labels: ['Enviados', 'Rechazados', 'Pendientes'],
-                    datasets: [{
-                        data: [data.sent, data.rejected, data.pending],
-                        backgroundColor: ['#10B981', '#EF4444', '#F59E0B']
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                        }
-                    }
-                }
-            });
         }
 
         function updateMessageStatusChart(data) {

@@ -22,6 +22,7 @@ $routes->group('v1', static function ($routes) {
                 $routes->get('details-dashboard', 'Gateway\SMS\SupplierController::detailsDashboard');
                 $routes->get('pending-messages', 'Gateway\SMS\SupplierController::pendingMessages');
                 $routes->post('confirm-sent-message', 'Gateway\SMS\SupplierController::confirmSentMessage');
+                $routes->post('heartbeat', 'Gateway\SMS\SupplierController::heartbeat');
             });
             $routes->group('client', ['filter' => 'tokenAuth'], static function ($routes) {
                 $routes->post('send', 'Gateway\SMS\ClientController::sendSms');

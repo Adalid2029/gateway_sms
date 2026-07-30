@@ -3,17 +3,21 @@
 namespace App\Controllers\Monitoring;
 
 use App\Controllers\BaseController;
-use CodeIgniter\HTTP\ResponseInterface;
-use App\Models\Monitoring\MonitoringModel;
-use App\Models\Monitoring\MessageModel;
-use CodeIgniter\API\ResponseTrait;
 use App\Libraries\LogParser;
+use App\Models\Gateway\SMS\SupplierDeviceModel;
+use App\Models\Monitoring\MessageModel;
+use App\Models\Monitoring\MonitoringModel;
+use App\Services\Gateway\SMS\DeviceStatusService;
+use CodeIgniter\API\ResponseTrait;
+use CodeIgniter\HTTP\ResponseInterface;
 
 class MonitoringController extends BaseController
 {
     protected $format = 'json';
     protected $providerModel;
     protected $messageModel;
+    protected $supplierDeviceModel;
+    protected $deviceStatusService;
     protected $logParser;
 
     use ResponseTrait;
@@ -22,6 +26,8 @@ class MonitoringController extends BaseController
     {
         $this->providerModel = new MonitoringModel();
         $this->messageModel = new MessageModel();
+        $this->supplierDeviceModel = new SupplierDeviceModel();
+        $this->deviceStatusService = new DeviceStatusService();
         $this->logParser = new LogParser(WRITEPATH . 'logs/log-' . date('Y-m-d') . '.log');
     }
     public function index()
@@ -66,12 +72,47 @@ class MonitoringController extends BaseController
 
         $activeProviders = $this->logParser->getActiveProviders(600);  // 20 minutos
         $providerDetails = $this->providerModel->getProvidersDetails($page, $limit, $search);
+        $providerIds = array_map(
+            static fn (array $provider): int => (int) $provider['id'],
+            $providerDetails
+        );
+        $devicesByProviderId = $this->supplierDeviceModel
+            ->getLatestDevicesByProviderIds($providerIds);
+        $heartbeatActiveProviders = 0;
 
         foreach ($providerDetails as &$provider) {
             $activeProvider = array_filter($activeProviders, function ($ap) use ($provider) {
                 return $ap['id'] == $provider['id'];
             });
             $provider['active'] = !empty($activeProvider);
+            $provider['legacy_log_active'] = $provider['active'];
+
+            $device = $devicesByProviderId[(int) $provider['id']] ?? null;
+            $diagnostic = $device !== null
+                ? $this->deviceStatusService->determineStatus($device)
+                : $this->deviceStatusService->determineStatus(['activo' => 1]);
+
+            $provider['heartbeat_status'] = $diagnostic['status'];
+            $provider['heartbeat_severity'] = $diagnostic['severity'];
+            $provider['heartbeat_message'] = $diagnostic['message'];
+            $provider['heartbeat_last_seconds_ago'] = $diagnostic['last_heartbeat_seconds_ago'];
+            $provider['heartbeat_active'] = $diagnostic['is_online'];
+            $provider['requires_attention'] = $diagnostic['requires_attention'];
+            $provider['device'] = [
+                'status' => $diagnostic['status'],
+                'severity' => $diagnostic['severity'],
+                'message' => $diagnostic['message'],
+                'is_online' => $diagnostic['is_online'],
+                'requires_attention' => $diagnostic['requires_attention'],
+                'last_heartbeat_seconds_ago' => $diagnostic['last_heartbeat_seconds_ago'],
+                'thresholds' => $diagnostic['thresholds'],
+                'details' => $device,
+            ];
+
+            if ($diagnostic['is_online']) {
+                $heartbeatActiveProviders++;
+            }
+
             if (!empty($activeProvider)) {
                 $activeProviderData = reset($activeProvider);
                 $lastActivityTime = strtotime($activeProviderData['last_activity']);
@@ -114,6 +155,7 @@ class MonitoringController extends BaseController
             'providers' => $this->providerModel->getProvidersDetails($page, $limit, $search),
             'providersReal' => $providerDetails,
             'activeProvidersReal' => count($activeProviders),
+            'activeProvidersHeartbeat' => $heartbeatActiveProviders,
             'pagination' => [
                 'page' => $page,
                 'limit' => $limit,
