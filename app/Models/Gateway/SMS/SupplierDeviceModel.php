@@ -127,6 +127,16 @@ class SupplierDeviceModel extends Model
             ->first();
     }
 
+    public function getPushEligibleDevices(): array
+    {
+        return $this->where('activo', 1)
+            ->where('token_fcm IS NOT NULL', null, false)
+            ->where('token_fcm !=', '')
+            ->orderBy('ultimo_latido_en', 'DESC')
+            ->orderBy('id_dispositivo_proveedor_gateway', 'DESC')
+            ->findAll();
+    }
+
     public function markPushSent(int $deviceId, string $serverTime): bool
     {
         return $this->update($deviceId, [

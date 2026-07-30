@@ -5,16 +5,23 @@ namespace App\Controllers\Gateway\SMS;
 use App\Controllers\BaseController;
 use App\Models\Client\SMS\ClientSystemModel;
 use App\Models\Client\SMS\SendSmsModel;
+use App\Models\Gateway\SMS\PushFcmEventModel;
+use App\Models\Gateway\SMS\SupplierDeviceModel;
+use Throwable;
 
 class ClientController extends BaseController
 {
     private $clientSystemModel;
     private $sendSmsModel;
+    private $supplierDeviceModel;
+    private $pushFcmEventModel;
     private $user;
     function __construct()
     {
         $this->clientSystemModel = new ClientSystemModel();
         $this->sendSmsModel = new SendSmsModel();
+        $this->supplierDeviceModel = new SupplierDeviceModel();
+        $this->pushFcmEventModel = new PushFcmEventModel();
         $this->user = auth()->user();
     }
     public function sendSms()
@@ -85,10 +92,174 @@ class ClientController extends BaseController
                 'type' => 'error',
                 'message' => lang('ClientControllerLang.errorMessageNotSent')
             ]);
+
+        if ($channel === 'SMS') {
+            $this->notifyPendingSmsDevices((int) $insertedId, $channel);
+        }
+
         return $this->response->setJSON([
             'type' => 'success',
             'message' => lang('ClientControllerLang.successMessageSent')
         ]);
+    }
+
+    private function notifyPendingSmsDevices(int $smsId, string $channel): void
+    {
+        $devices = $this->supplierDeviceModel->getPushEligibleDevices();
+
+        log_message('info', 'SMS_PENDING - START - sms_id: {sms_id} - channel: {channel} - eligible_devices: {eligible_devices}', [
+            'sms_id' => $smsId,
+            'channel' => $channel,
+            'eligible_devices' => count($devices),
+        ]);
+
+        if ($devices === []) {
+            log_message('warning', 'SMS_PENDING - NO_ELIGIBLE_DEVICES - sms_id: {sms_id} - channel: {channel}', [
+                'sms_id' => $smsId,
+                'channel' => $channel,
+            ]);
+
+            return;
+        }
+
+        foreach ($devices as $device) {
+            $this->notifyPendingSmsDevice($smsId, $channel, $device);
+        }
+    }
+
+    private function notifyPendingSmsDevice(int $smsId, string $channel, array $device): void
+    {
+        $deviceId = (int) ($device['id_dispositivo_proveedor_gateway'] ?? 0);
+        $providerId = (int) ($device['id_users_proveedor_sms'] ?? 0);
+
+        if ($deviceId <= 0 || $providerId <= 0) {
+            log_message('error', 'SMS_PENDING - INVALID_DEVICE_DATA - sms_id: {sms_id} - channel: {channel}', [
+                'sms_id' => $smsId,
+                'channel' => $channel,
+            ]);
+
+            return;
+        }
+
+        $eventIdentifier = $this->generateEventIdentifier();
+        $eventId = $this->pushFcmEventModel->createPendingEvent(
+            $deviceId,
+            $providerId,
+            $eventIdentifier,
+            'SMS_PENDING'
+        );
+
+        if ($eventId === null) {
+            log_message('error', 'SMS_PENDING - EVENT_CREATE_FAILED - sms_id: {sms_id} - provider_id: {provider_id} - device_id: {device_id} - event_id: {event_id}', [
+                'sms_id' => $smsId,
+                'provider_id' => $providerId,
+                'device_id' => $deviceId,
+                'event_id' => $eventIdentifier,
+            ]);
+
+            return;
+        }
+
+        try {
+            $result = service('firebaseMessagingService')->sendToToken(
+                (string) ($device['token_fcm'] ?? ''),
+                'SMS_PENDING',
+                [
+                    'channel' => $channel,
+                    'event_id' => $eventIdentifier,
+                    'sms_id' => (string) $smsId,
+                ]
+            );
+        } catch (Throwable $exception) {
+            $this->pushFcmEventModel->markError(
+                $eventId,
+                'FCM_CONFIGURATION_ERROR',
+                $exception->getMessage()
+            );
+
+            log_message('error', 'SMS_PENDING - CONFIG_ERROR - sms_id: {sms_id} - provider_id: {provider_id} - device_id: {device_id} - event_id: {event_id} - message: {message}', [
+                'sms_id' => $smsId,
+                'provider_id' => $providerId,
+                'device_id' => $deviceId,
+                'event_id' => $eventIdentifier,
+                'message' => $exception->getMessage(),
+            ]);
+
+            return;
+        }
+
+        $serverTime = date('Y-m-d H:i:s');
+
+        if ($result['success'] === true) {
+            $this->supplierDeviceModel->markPushSent($deviceId, $serverTime);
+            $this->pushFcmEventModel->markAccepted(
+                $eventId,
+                (string) $result['message_id'],
+                $serverTime
+            );
+
+            log_message('info', 'SMS_PENDING - ACCEPTED - sms_id: {sms_id} - provider_id: {provider_id} - device_id: {device_id} - event_id: {event_id} - message_id: {message_id}', [
+                'sms_id' => $smsId,
+                'provider_id' => $providerId,
+                'device_id' => $deviceId,
+                'event_id' => $eventIdentifier,
+                'message_id' => (string) $result['message_id'],
+            ]);
+
+            return;
+        }
+
+        $this->supplierDeviceModel->recordPushError(
+            $deviceId,
+            (string) $result['error_code'],
+            (string) $result['error_message'],
+            $serverTime
+        );
+        $this->pushFcmEventModel->markError(
+            $eventId,
+            (string) $result['error_code'],
+            (string) $result['error_message'],
+            $serverTime
+        );
+
+        if (($result['should_clear_token'] ?? false) === true) {
+            $this->supplierDeviceModel->clearFcmToken($deviceId);
+
+            log_message('warning', 'SMS_PENDING - TOKEN_CLEARED - sms_id: {sms_id} - provider_id: {provider_id} - device_id: {device_id} - event_id: {event_id} - error_code: {error_code} - message: {message}', [
+                'sms_id' => $smsId,
+                'provider_id' => $providerId,
+                'device_id' => $deviceId,
+                'event_id' => $eventIdentifier,
+                'error_code' => (string) $result['error_code'],
+                'message' => (string) $result['error_message'],
+            ]);
+
+            return;
+        }
+
+        log_message('error', 'SMS_PENDING - SEND_ERROR - sms_id: {sms_id} - provider_id: {provider_id} - device_id: {device_id} - event_id: {event_id} - error_code: {error_code} - message: {message}', [
+            'sms_id' => $smsId,
+            'provider_id' => $providerId,
+            'device_id' => $deviceId,
+            'event_id' => $eventIdentifier,
+            'error_code' => (string) $result['error_code'],
+            'message' => (string) $result['error_message'],
+        ]);
+    }
+
+    private function generateEventIdentifier(): string
+    {
+        $bytes = random_bytes(16);
+        $hex = bin2hex($bytes);
+
+        return sprintf(
+            '%s-%s-%s-%s-%s',
+            substr($hex, 0, 8),
+            substr($hex, 8, 4),
+            substr($hex, 12, 4),
+            substr($hex, 16, 4),
+            substr($hex, 20, 12)
+        );
     }
 
     public function listSystems()
