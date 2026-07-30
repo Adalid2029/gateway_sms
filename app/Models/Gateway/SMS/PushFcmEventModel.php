@@ -17,6 +17,7 @@ class PushFcmEventModel extends Model
     protected $allowedFields    = [
         'id_dispositivo_proveedor_gateway',
         'id_user_proveedor_sms',
+        'id_envio_sms',
         'identificador_evento',
         'tipo_evento',
         'estado_envio',
@@ -58,11 +59,13 @@ class PushFcmEventModel extends Model
         int $deviceId,
         int $providerId,
         string $eventIdentifier,
-        string $eventType
+        string $eventType,
+        ?int $smsId = null
     ): ?int {
         $inserted = $this->insert([
             'id_dispositivo_proveedor_gateway' => $deviceId,
             'id_user_proveedor_sms' => $providerId,
+            'id_envio_sms' => $smsId,
             'identificador_evento' => $eventIdentifier,
             'tipo_evento' => $eventType,
             'estado_envio' => 'PENDIENTE',

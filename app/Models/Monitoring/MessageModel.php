@@ -129,4 +129,83 @@ class MessageModel extends Model
 
         return $query->countAllResults();
     }
+
+    public function getSmsTrace(int $smsId): ?array
+    {
+        $sms = $this->db->table('envio_sms')
+            ->select('envio_sms.*, sistema_cliente.nombre_sistema')
+            ->join('sistema_cliente', 'sistema_cliente.id_sistema_cliente = envio_sms.id_sistema_cliente', 'left')
+            ->where('envio_sms.id_envio_sms', $smsId)
+            ->get()
+            ->getRowArray();
+
+        if ($sms === null) {
+            return null;
+        }
+
+        $providerAttempts = $this->db->table('proveedor_envio_sms')
+            ->select('proveedor_envio_sms.*, proveedor_sms.nombre AS nombre_proveedor')
+            ->join('proveedor_sms', 'proveedor_sms.id_users_proveedor_sms = proveedor_envio_sms.id_users_proveedor_sms', 'left')
+            ->where('proveedor_envio_sms.id_envio_sms', $smsId)
+            ->orderBy('proveedor_envio_sms.id_proveedor_envio_sms', 'ASC')
+            ->get()
+            ->getResultArray();
+
+        $fcmEvents = $this->db->table('evento_push_fcm_gateway')
+            ->select(
+                'evento_push_fcm_gateway.*, dispositivo_proveedor_gateway.id_instalacion, ' .
+                'dispositivo_proveedor_gateway.fabricante, dispositivo_proveedor_gateway.modelo, ' .
+                'dispositivo_proveedor_gateway.version_android, dispositivo_proveedor_gateway.version_app, ' .
+                'dispositivo_proveedor_gateway.estado_servicio, dispositivo_proveedor_gateway.tipo_red, ' .
+                'dispositivo_proveedor_gateway.red_validada, dispositivo_proveedor_gateway.ultimo_latido_en'
+            )
+            ->join(
+                'dispositivo_proveedor_gateway',
+                'dispositivo_proveedor_gateway.id_dispositivo_proveedor_gateway = evento_push_fcm_gateway.id_dispositivo_proveedor_gateway',
+                'left'
+            )
+            ->where('evento_push_fcm_gateway.id_envio_sms', $smsId)
+            ->orderBy('evento_push_fcm_gateway.id_evento_push_fcm_gateway', 'ASC')
+            ->get()
+            ->getResultArray();
+
+        return [
+            'sms' => $sms,
+            'provider_attempts' => $providerAttempts,
+            'fcm_events' => $fcmEvents,
+            'summary' => $this->buildTraceSummary($sms, $providerAttempts, $fcmEvents),
+        ];
+    }
+
+    private function buildTraceSummary(array $sms, array $providerAttempts, array $fcmEvents): array
+    {
+        $acceptedFcm = 0;
+        $receivedFcm = 0;
+        $erroredFcm = 0;
+
+        foreach ($fcmEvents as $event) {
+            if (in_array(($event['estado_envio'] ?? null), ['ACEPTADO_FCM', 'RECIBIDO_DISPOSITIVO'], true)) {
+                $acceptedFcm++;
+            }
+
+            if (($event['estado_envio'] ?? null) === 'RECIBIDO_DISPOSITIVO') {
+                $receivedFcm++;
+            }
+
+            if (($event['estado_envio'] ?? null) === 'ERROR') {
+                $erroredFcm++;
+            }
+        }
+
+        return [
+            'id_envio_sms' => (int) $sms['id_envio_sms'],
+            'canal_envio' => $sms['canal_envio'] ?? 'SMS',
+            'total_fcm_events' => count($fcmEvents),
+            'accepted_fcm_events' => $acceptedFcm,
+            'received_fcm_events' => $receivedFcm,
+            'errored_fcm_events' => $erroredFcm,
+            'provider_attempts' => count($providerAttempts),
+            'final_provider_status' => $providerAttempts[count($providerAttempts) - 1]['estado_envio'] ?? null,
+        ];
+    }
 }

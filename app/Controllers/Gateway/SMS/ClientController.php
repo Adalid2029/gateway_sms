@@ -146,7 +146,8 @@ class ClientController extends BaseController
             $deviceId,
             $providerId,
             $eventIdentifier,
-            'SMS_PENDING'
+            'SMS_PENDING',
+            $smsId
         );
 
         if ($eventId === null) {

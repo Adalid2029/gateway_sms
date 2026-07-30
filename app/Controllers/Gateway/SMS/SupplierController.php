@@ -51,14 +51,16 @@ class SupplierController extends ResourceController
     {
         $channel = $this->normalizeChannel($channel);
         $startTime = microtime(true);
+        $requestContext = $this->getPendingMessagesRequestContext();
+        $logContext = $this->formatPendingMessagesLogContext($requestContext);
 
-        $this->logger->alert("PROVIDER_ACTIVITY - ID: {$this->user->id} - CHANNEL: {$channel} - ACTION: pending_messages_request - START");
+        $this->logger->alert("PROVIDER_ACTIVITY - ID: {$this->user->id} - CHANNEL: {$channel} - ACTION: pending_messages_request - START{$logContext}");
 
         $pendingMessage = $this->supplierModel->getPendingSmsWithoutProvider($this->user->id, $channel);
         if (!$pendingMessage) {
             $endTime = microtime(true);
             $executionTime = $endTime - $startTime;
-            $this->logger->alert("PROVIDER_ACTIVITY - ID: {$this->user->id} - CHANNEL: {$channel} - ACTION: pending_messages_request - END - DURATION: {$executionTime} - RESULT: no_pending_messages");
+            $this->logger->alert("PROVIDER_ACTIVITY - ID: {$this->user->id} - CHANNEL: {$channel} - ACTION: pending_messages_request - END - DURATION: {$executionTime} - RESULT: no_pending_messages{$logContext}");
 
             return $this->response
                 ->setStatusCode(ResponseInterface::HTTP_OK)
@@ -76,7 +78,7 @@ class SupplierController extends ResourceController
         if (!$assignMessageToProvider) {
             $endTime = microtime(true);
             $executionTime = $endTime - $startTime;
-            $this->logger->error("PROVIDER_ACTIVITY - ID: {$this->user->id} - CHANNEL: {$channel} - ACTION: pending_messages_request - END - DURATION: {$executionTime} - RESULT: assign_failed");
+            $this->logger->error("PROVIDER_ACTIVITY - ID: {$this->user->id} - CHANNEL: {$channel} - ACTION: pending_messages_request - END - DURATION: {$executionTime} - RESULT: assign_failed - SMS_ID: {$pendingMessage['id_envio_sms']}{$logContext}");
 
             return $this->response
                 ->setStatusCode(ResponseInterface::HTTP_INTERNAL_SERVER_ERROR)
@@ -96,7 +98,7 @@ class SupplierController extends ResourceController
         if (!$processingSms) {
             $endTime = microtime(true);
             $executionTime = $endTime - $startTime;
-            $this->logger->error("PROVIDER_ACTIVITY - ID: {$this->user->id} - CHANNEL: {$channel} - ACTION: pending_messages_request - END - DURATION: {$executionTime} - RESULT: processing_not_found");
+            $this->logger->error("PROVIDER_ACTIVITY - ID: {$this->user->id} - CHANNEL: {$channel} - ACTION: pending_messages_request - END - DURATION: {$executionTime} - RESULT: processing_not_found - PROVIDER_SMS_ID: {$assignMessageToProvider} - SMS_ID: {$pendingMessage['id_envio_sms']}{$logContext}");
 
             return $this->response
                 ->setStatusCode(ResponseInterface::HTTP_INTERNAL_SERVER_ERROR)
@@ -108,7 +110,7 @@ class SupplierController extends ResourceController
 
         $endTime = microtime(true);
         $executionTime = $endTime - $startTime;
-        $this->logger->alert("PROVIDER_ACTIVITY - ID: {$this->user->id} - CHANNEL: {$channel} - ACTION: pending_messages_request - END - DURATION: {$executionTime} - RESULT: success");
+        $this->logger->alert("PROVIDER_ACTIVITY - ID: {$this->user->id} - CHANNEL: {$channel} - ACTION: pending_messages_request - END - DURATION: {$executionTime} - RESULT: success - PROVIDER_SMS_ID: {$assignMessageToProvider} - SMS_ID: {$pendingMessage['id_envio_sms']}{$logContext}");
 
         return $this->response
             ->setJSON([
@@ -347,6 +349,39 @@ class SupplierController extends ResourceController
         $allowedChannels = ['SMS', 'WHATSAPP', 'TELEGRAM'];
 
         return in_array($channel, $allowedChannels, true) ? $channel : 'SMS';
+    }
+
+    private function getPendingMessagesRequestContext(): array
+    {
+        $payload = $this->request->getJSON(true);
+        if (!is_array($payload)) {
+            $payload = [];
+        }
+
+        $query = [
+            'event_id' => $this->request->getGet('event_id'),
+            'message_id' => $this->request->getGet('message_id'),
+            'device_id' => $this->request->getGet('device_id'),
+            'installation_id' => $this->request->getGet('installation_id'),
+        ];
+
+        $data = array_merge($query, $payload);
+
+        return [
+            'event_id' => $this->nullableString($data, ['event_id', 'message_id']),
+            'device_id' => $this->nullableInt($data, ['device_id']),
+            'installation_id' => $this->nullableString($data, ['installation_id']),
+        ];
+    }
+
+    private function formatPendingMessagesLogContext(array $context): string
+    {
+        return sprintf(
+            ' - EVENT_ID: %s - DEVICE_ID: %s - INSTALLATION_ID: %s',
+            $context['event_id'] ?? 'none',
+            $context['device_id'] ?? 'unknown',
+            $context['installation_id'] ?? 'unknown'
+        );
     }
 
     private function buildHeartbeatInsertData(array $payload, string $serverTime): array

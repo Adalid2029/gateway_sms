@@ -64,6 +64,44 @@ class MonitoringController extends BaseController
 
         return $this->respond($data);
     }
+
+    public function traceSms(int $smsId)
+    {
+        if (!auth()->loggedIn()) {
+            return $this->response
+                ->setStatusCode(ResponseInterface::HTTP_UNAUTHORIZED)
+                ->setJSON([
+                    'type' => 'error',
+                    'message' => 'Debes iniciar sesión para consultar la trazabilidad.',
+                ]);
+        }
+
+        $user = auth()->user();
+        if ($user === null || !$user->can('admin.access')) {
+            return $this->response
+                ->setStatusCode(ResponseInterface::HTTP_FORBIDDEN)
+                ->setJSON([
+                    'type' => 'error',
+                    'message' => 'No tienes permisos para consultar esta trazabilidad.',
+                ]);
+        }
+
+        $trace = $this->messageModel->getSmsTrace($smsId);
+        if ($trace === null) {
+            return $this->response
+                ->setStatusCode(ResponseInterface::HTTP_NOT_FOUND)
+                ->setJSON([
+                    'type' => 'error',
+                    'message' => 'No se encontró el SMS solicitado.',
+                ]);
+        }
+
+        return $this->response->setJSON([
+            'type' => 'success',
+            'data' => $trace,
+        ]);
+    }
+
     public function getDashboardData()
     {
         $page = (int)$this->request->getVar('page') ?? 1;

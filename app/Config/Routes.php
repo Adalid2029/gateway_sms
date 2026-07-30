@@ -83,6 +83,11 @@ $routes->group('dashboard', static function ($routes) {
 });
 
 $routes->get('dashboard/messages', 'Monitoring\MonitoringController::getMessagesData');
+$routes->get(
+    'dashboard/messages/(:num)/trace',
+    'Monitoring\MonitoringController::traceSms/$1',
+    ['filter' => ['session', 'permission:admin.access']]
+);
 
 
 
