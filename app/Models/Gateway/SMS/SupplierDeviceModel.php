@@ -58,8 +58,8 @@ class SupplierDeviceModel extends Model
 
     protected $useTimestamps = true;
     protected $dateFormat    = 'datetime';
-    protected $createdField  = 'creado_en';
-    protected $updatedField  = 'actualizado_en';
+    protected $createdField  = 'created_at';
+    protected $updatedField  = 'updated_at';
     protected $deletedField  = '';
 
     protected $validationRules      = [];
