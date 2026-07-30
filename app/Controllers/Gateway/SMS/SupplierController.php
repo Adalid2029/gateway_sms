@@ -322,6 +322,13 @@ class SupplierController extends ResourceController
             $serverTime
         );
 
+        log_message('info', 'FCM_ACK - RECEIVED - provider_id: {provider_id} - device_id: {device_id} - event: {event} - event_id: {event_id}', [
+            'provider_id' => (int) $this->user->id,
+            'device_id' => (int) $device['id_dispositivo_proveedor_gateway'],
+            'event' => trim((string) $payload['event']),
+            'event_id' => $eventIdentifier,
+        ]);
+
         return $this->response->setJSON([
             'type' => 'success',
             'message' => 'Recepción FCM confirmada correctamente',

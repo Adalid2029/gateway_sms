@@ -218,6 +218,12 @@ class MonitoringController extends BaseController
         }
 
         $eventIdentifier = $this->generateEventIdentifier();
+        log_message('info', 'FCM_TEST - START - provider_id: {provider_id} - device_id: {device_id} - event_id: {event_id}', [
+            'provider_id' => $providerId,
+            'device_id' => (int) $device['id_dispositivo_proveedor_gateway'],
+            'event_id' => $eventIdentifier,
+        ]);
+
         $eventId = $this->pushFcmEventModel->createPendingEvent(
             (int) $device['id_dispositivo_proveedor_gateway'],
             $providerId,
@@ -252,6 +258,13 @@ class MonitoringController extends BaseController
                 $exception->getMessage()
             );
 
+            log_message('error', 'FCM_TEST - CONFIG_ERROR - provider_id: {provider_id} - device_id: {device_id} - event_id: {event_id} - message: {message}', [
+                'provider_id' => $providerId,
+                'device_id' => (int) $device['id_dispositivo_proveedor_gateway'],
+                'event_id' => $eventIdentifier,
+                'message' => $exception->getMessage(),
+            ]);
+
             return $this->response
                 ->setStatusCode(ResponseInterface::HTTP_INTERNAL_SERVER_ERROR)
                 ->setJSON([
@@ -273,6 +286,13 @@ class MonitoringController extends BaseController
                 (string) $result['message_id'],
                 $serverTime
             );
+
+            log_message('info', 'FCM_TEST - ACCEPTED - provider_id: {provider_id} - device_id: {device_id} - event_id: {event_id} - message_id: {message_id}', [
+                'provider_id' => $providerId,
+                'device_id' => (int) $device['id_dispositivo_proveedor_gateway'],
+                'event_id' => $eventIdentifier,
+                'message_id' => (string) $result['message_id'],
+            ]);
 
             return $this->response->setJSON([
                 'type' => 'success',
@@ -307,6 +327,14 @@ class MonitoringController extends BaseController
                 (int) $device['id_dispositivo_proveedor_gateway']
             );
 
+            log_message('warning', 'FCM_TEST - TOKEN_CLEARED - provider_id: {provider_id} - device_id: {device_id} - event_id: {event_id} - error_code: {error_code} - message: {message}', [
+                'provider_id' => $providerId,
+                'device_id' => (int) $device['id_dispositivo_proveedor_gateway'],
+                'event_id' => $eventIdentifier,
+                'error_code' => (string) $result['error_code'],
+                'message' => (string) $result['error_message'],
+            ]);
+
             return $this->response
                 ->setStatusCode(ResponseInterface::HTTP_UNPROCESSABLE_ENTITY)
                 ->setJSON([
@@ -322,6 +350,14 @@ class MonitoringController extends BaseController
                     ],
                 ]);
         }
+
+        log_message('error', 'FCM_TEST - SEND_ERROR - provider_id: {provider_id} - device_id: {device_id} - event_id: {event_id} - error_code: {error_code} - message: {message}', [
+            'provider_id' => $providerId,
+            'device_id' => (int) $device['id_dispositivo_proveedor_gateway'],
+            'event_id' => $eventIdentifier,
+            'error_code' => (string) $result['error_code'],
+            'message' => (string) $result['error_message'],
+        ]);
 
         return $this->response
             ->setStatusCode(ResponseInterface::HTTP_BAD_GATEWAY)
