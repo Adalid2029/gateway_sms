@@ -115,4 +115,59 @@ class SupplierDeviceModel extends Model
 
         return $devicesByProviderId;
     }
+
+    public function getPushEligibleDeviceForProvider(int $providerId): ?array
+    {
+        return $this->where('id_users_proveedor_sms', $providerId)
+            ->where('activo', 1)
+            ->where('token_fcm IS NOT NULL', null, false)
+            ->where('token_fcm !=', '')
+            ->orderBy('ultimo_latido_en', 'DESC')
+            ->orderBy('id_dispositivo_proveedor_gateway', 'DESC')
+            ->first();
+    }
+
+    public function markPushSent(int $deviceId, string $serverTime): bool
+    {
+        return $this->update($deviceId, [
+            'ultimo_push_fcm_en' => $serverTime,
+        ]);
+    }
+
+    public function clearFcmToken(int $deviceId): bool
+    {
+        return $this->update($deviceId, [
+            'token_fcm' => null,
+            'token_fcm_actualizado_en' => null,
+        ]);
+    }
+
+    public function recordPushError(
+        int $deviceId,
+        string $errorCode,
+        string $errorMessage,
+        string $serverTime
+    ): bool {
+        return $this->update($deviceId, [
+            'codigo_ultimo_error' => $errorCode,
+            'mensaje_ultimo_error' => mb_substr($errorMessage, 0, 500),
+            'ultimo_error_en' => $serverTime,
+        ]);
+    }
+
+    public function findByInstallationForProvider(
+        string $installationId,
+        int $providerId
+    ): ?array {
+        return $this->where('id_instalacion', $installationId)
+            ->where('id_users_proveedor_sms', $providerId)
+            ->first();
+    }
+
+    public function markFcmReceived(int $deviceId, string $serverTime): bool
+    {
+        return $this->update($deviceId, [
+            'ultimo_fcm_recibido_en' => $serverTime,
+        ]);
+    }
 }

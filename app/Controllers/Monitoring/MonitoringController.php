@@ -4,12 +4,14 @@ namespace App\Controllers\Monitoring;
 
 use App\Controllers\BaseController;
 use App\Libraries\LogParser;
+use App\Models\Gateway\SMS\PushFcmEventModel;
 use App\Models\Gateway\SMS\SupplierDeviceModel;
 use App\Models\Monitoring\MessageModel;
 use App\Models\Monitoring\MonitoringModel;
 use App\Services\Gateway\SMS\DeviceStatusService;
 use CodeIgniter\API\ResponseTrait;
 use CodeIgniter\HTTP\ResponseInterface;
+use Throwable;
 
 class MonitoringController extends BaseController
 {
@@ -17,6 +19,7 @@ class MonitoringController extends BaseController
     protected $providerModel;
     protected $messageModel;
     protected $supplierDeviceModel;
+    protected $pushFcmEventModel;
     protected $deviceStatusService;
     protected $logParser;
 
@@ -27,6 +30,7 @@ class MonitoringController extends BaseController
         $this->providerModel = new MonitoringModel();
         $this->messageModel = new MessageModel();
         $this->supplierDeviceModel = new SupplierDeviceModel();
+        $this->pushFcmEventModel = new PushFcmEventModel();
         $this->deviceStatusService = new DeviceStatusService();
         $this->logParser = new LogParser(WRITEPATH . 'logs/log-' . date('Y-m-d') . '.log');
     }
@@ -164,5 +168,196 @@ class MonitoringController extends BaseController
         ];
 
         return $this->respond($data);
+    }
+
+    public function testFcm(int $providerId)
+    {
+        if (!auth()->loggedIn()) {
+            return $this->response
+                ->setStatusCode(ResponseInterface::HTTP_UNAUTHORIZED)
+                ->setJSON([
+                    'type' => 'error',
+                    'message' => 'Debes iniciar sesión para probar FCM.',
+                ]);
+        }
+
+        $user = auth()->user();
+        if ($user === null || !$user->can('admin.access')) {
+            return $this->response
+                ->setStatusCode(ResponseInterface::HTTP_FORBIDDEN)
+                ->setJSON([
+                    'type' => 'error',
+                    'message' => 'No tienes permisos para ejecutar esta prueba FCM.',
+                ]);
+        }
+
+        $device = $this->supplierDeviceModel->getPushEligibleDeviceForProvider($providerId);
+        if ($device === null) {
+            return $this->response
+                ->setStatusCode(ResponseInterface::HTTP_NOT_FOUND)
+                ->setJSON([
+                    'type' => 'error',
+                    'message' => 'No se encontró un dispositivo elegible para este proveedor.',
+                ]);
+        }
+
+        $diagnostic = $this->deviceStatusService->determineStatus($device);
+
+        if (!$this->isPushEligibleDiagnostic($diagnostic['status'])) {
+            return $this->response
+                ->setStatusCode(ResponseInterface::HTTP_CONFLICT)
+                ->setJSON([
+                    'type' => 'error',
+                    'message' => 'El dispositivo no está en un estado adecuado para una prueba FCM.',
+                    'data' => [
+                        'provider_id' => $providerId,
+                        'device_id' => (int) $device['id_dispositivo_proveedor_gateway'],
+                        'device_status' => $diagnostic,
+                    ],
+                ]);
+        }
+
+        $eventIdentifier = $this->generateEventIdentifier();
+        $eventId = $this->pushFcmEventModel->createPendingEvent(
+            (int) $device['id_dispositivo_proveedor_gateway'],
+            $providerId,
+            $eventIdentifier,
+            'FCM_TEST'
+        );
+
+        if ($eventId === null) {
+            return $this->response
+                ->setStatusCode(ResponseInterface::HTTP_INTERNAL_SERVER_ERROR)
+                ->setJSON([
+                    'type' => 'error',
+                    'message' => 'No se pudo registrar el evento FCM antes del envío.',
+                ]);
+        }
+
+        try {
+            $result = service('firebaseMessagingService')->sendToToken(
+                (string) $device['token_fcm'],
+                'FCM_TEST',
+                [
+                    'provider_id' => (string) $providerId,
+                    'device_id' => (string) $device['id_dispositivo_proveedor_gateway'],
+                    'channel' => 'SMS',
+                    'event_id' => $eventIdentifier,
+                ]
+            );
+        } catch (Throwable $exception) {
+            $this->pushFcmEventModel->markError(
+                $eventId,
+                'FCM_CONFIGURATION_ERROR',
+                $exception->getMessage()
+            );
+
+            return $this->response
+                ->setStatusCode(ResponseInterface::HTTP_INTERNAL_SERVER_ERROR)
+                ->setJSON([
+                    'type' => 'error',
+                    'message' => 'La configuración de Firebase no es válida.',
+                    'errors' => $exception->getMessage(),
+                ]);
+        }
+
+        $serverTime = date('Y-m-d H:i:s');
+
+        if ($result['success'] === true) {
+            $this->supplierDeviceModel->markPushSent(
+                (int) $device['id_dispositivo_proveedor_gateway'],
+                $serverTime
+            );
+            $this->pushFcmEventModel->markAccepted(
+                $eventId,
+                (string) $result['message_id'],
+                $serverTime
+            );
+
+            return $this->response->setJSON([
+                'type' => 'success',
+                'message' => 'Push enviado correctamente',
+                'data' => [
+                    'provider_id' => $providerId,
+                    'device_id' => (int) $device['id_dispositivo_proveedor_gateway'],
+                    'event' => $result['event'],
+                    'event_id' => $eventIdentifier,
+                    'message_id' => $result['message_id'],
+                    'device_status' => $diagnostic,
+                    'server_time' => $serverTime,
+                ],
+            ]);
+        }
+
+        $this->supplierDeviceModel->recordPushError(
+            (int) $device['id_dispositivo_proveedor_gateway'],
+            (string) $result['error_code'],
+            (string) $result['error_message'],
+            $serverTime
+        );
+        $this->pushFcmEventModel->markError(
+            $eventId,
+            (string) $result['error_code'],
+            (string) $result['error_message'],
+            $serverTime
+        );
+
+        if ($result['should_clear_token'] === true) {
+            $this->supplierDeviceModel->clearFcmToken(
+                (int) $device['id_dispositivo_proveedor_gateway']
+            );
+
+            return $this->response
+                ->setStatusCode(ResponseInterface::HTTP_UNPROCESSABLE_ENTITY)
+                ->setJSON([
+                    'type' => 'error',
+                    'message' => 'El token FCM del dispositivo es inválido y fue limpiado.',
+                    'data' => [
+                        'provider_id' => $providerId,
+                        'device_id' => (int) $device['id_dispositivo_proveedor_gateway'],
+                        'event' => $result['event'],
+                        'event_id' => $eventIdentifier,
+                        'error_code' => $result['error_code'],
+                        'error_message' => $result['error_message'],
+                    ],
+                ]);
+        }
+
+        return $this->response
+            ->setStatusCode(ResponseInterface::HTTP_BAD_GATEWAY)
+            ->setJSON([
+                'type' => 'error',
+                'message' => 'No se pudo enviar el push FCM.',
+                'data' => [
+                    'provider_id' => $providerId,
+                    'device_id' => (int) $device['id_dispositivo_proveedor_gateway'],
+                    'event' => $result['event'],
+                    'event_id' => $eventIdentifier,
+                    'error_code' => $result['error_code'],
+                    'error_message' => $result['error_message'],
+                ],
+            ]);
+    }
+
+    private function isPushEligibleDiagnostic(string $status): bool
+    {
+        $blockedStatuses = [
+            DeviceStatusService::STATUS_DISABLED,
+            DeviceStatusService::STATUS_OFFLINE,
+            DeviceStatusService::STATUS_SERVICE_ERROR,
+            DeviceStatusService::STATUS_SERVICE_STOPPED,
+            DeviceStatusService::STATUS_NETWORK_ERROR,
+        ];
+
+        return !in_array($status, $blockedStatuses, true);
+    }
+
+    private function generateEventIdentifier(): string
+    {
+        $bytes = random_bytes(16);
+        $bytes[6] = chr((ord($bytes[6]) & 0x0f) | 0x40);
+        $bytes[8] = chr((ord($bytes[8]) & 0x3f) | 0x80);
+
+        return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($bytes), 4));
     }
 }

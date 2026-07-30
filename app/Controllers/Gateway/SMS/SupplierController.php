@@ -2,6 +2,7 @@
 
 namespace App\Controllers\Gateway\SMS;
 
+use App\Models\Gateway\SMS\PushFcmEventModel;
 use App\Models\Gateway\SMS\SupplierDeviceModel;
 use App\Models\Gateway\SMS\SupplierModel;
 use CodeIgniter\HTTP\ResponseInterface;
@@ -12,12 +13,14 @@ class SupplierController extends ResourceController
     protected $format = 'json';
     protected $supplierModel;
     protected $supplierDeviceModel;
+    protected $pushFcmEventModel;
     protected $user;
 
     public function __construct()
     {
         $this->supplierModel = new SupplierModel();
         $this->supplierDeviceModel = new SupplierDeviceModel();
+        $this->pushFcmEventModel = new PushFcmEventModel();
         $this->user = auth()->user();
     }
 
@@ -246,6 +249,91 @@ class SupplierController extends ResourceController
             ]);
     }
 
+    public function confirmFcmReceived()
+    {
+        $payload = $this->request->getJSON(true);
+        if (!is_array($payload)) {
+            $payload = [];
+        }
+
+        $rules = [
+            'installation_id' => 'required|max_length[100]',
+            'event' => 'required|max_length[50]',
+            'event_id' => 'if_exist|max_length[100]',
+            'message_id' => 'if_exist|max_length[100]',
+        ];
+
+        if (!$this->validateData($payload, $rules)) {
+            return $this->response
+                ->setStatusCode(ResponseInterface::HTTP_BAD_REQUEST)
+                ->setJSON([
+                    'type' => 'error',
+                    'message' => $this->validator->getErrors(),
+                ]);
+        }
+
+        $installationId = trim((string) $payload['installation_id']);
+        $device = $this->supplierDeviceModel->findByInstallationForProvider(
+            $installationId,
+            (int) $this->user->id
+        );
+
+        if ($device === null) {
+            return $this->response
+                ->setStatusCode(ResponseInterface::HTTP_NOT_FOUND)
+                ->setJSON([
+                    'type' => 'error',
+                    'message' => 'La instalación no pertenece al proveedor autenticado.',
+                ]);
+        }
+
+        $eventIdentifier = $this->resolveFcmEventIdentifier($payload);
+        if ($eventIdentifier === null) {
+            return $this->response
+                ->setStatusCode(ResponseInterface::HTTP_BAD_REQUEST)
+                ->setJSON([
+                    'type' => 'error',
+                    'message' => 'Debes enviar event_id o message_id para confirmar el FCM.',
+                ]);
+        }
+
+        $event = $this->pushFcmEventModel->findByIdentifier($eventIdentifier);
+        if (
+            $event === null
+            || (int) $event['id_dispositivo_proveedor_gateway'] !== (int) $device['id_dispositivo_proveedor_gateway']
+        ) {
+            return $this->response
+                ->setStatusCode(ResponseInterface::HTTP_NOT_FOUND)
+                ->setJSON([
+                    'type' => 'error',
+                    'message' => 'No se encontró un evento FCM válido para esta instalación.',
+                ]);
+        }
+
+        $serverTime = date('Y-m-d H:i:s');
+
+        $this->supplierDeviceModel->markFcmReceived(
+            (int) $device['id_dispositivo_proveedor_gateway'],
+            $serverTime
+        );
+
+        $this->pushFcmEventModel->markReceived(
+            (int) $event['id_evento_push_fcm_gateway'],
+            $serverTime
+        );
+
+        return $this->response->setJSON([
+            'type' => 'success',
+            'message' => 'Recepción FCM confirmada correctamente',
+            'data' => [
+                'device_id' => (int) $device['id_dispositivo_proveedor_gateway'],
+                'event' => trim((string) $payload['event']),
+                'event_id' => $eventIdentifier,
+                'server_time' => $serverTime,
+            ],
+        ]);
+    }
+
     private function normalizeChannel(string $channel): string
     {
         $channel = strtoupper($channel);
@@ -256,7 +344,7 @@ class SupplierController extends ResourceController
 
     private function buildHeartbeatInsertData(array $payload, string $serverTime): array
     {
-        return array_merge(
+        $deviceData = array_merge(
             [
                 'id_users_proveedor_sms' => (int) $this->user->id,
                 'id_instalacion' => trim((string) $payload['installation_id']),
@@ -264,15 +352,35 @@ class SupplierController extends ResourceController
             ],
             $this->extractOptionalHeartbeatFields($payload)
         );
+
+        return $this->applyServerManagedFcmTokenFields(
+            $deviceData,
+            $payload,
+            null,
+            $serverTime
+        );
     }
 
     private function buildHeartbeatUpdateData(array $payload, string $serverTime): array
     {
-        return array_merge(
+        $previousFcmToken = $this->supplierDeviceModel
+            ->findByInstallationForProvider(
+                trim((string) $payload['installation_id']),
+                (int) $this->user->id
+            )['token_fcm'] ?? null;
+
+        $deviceData = array_merge(
             [
                 'ultimo_latido_en' => $serverTime,
             ],
             $this->extractOptionalHeartbeatFields($payload)
+        );
+
+        return $this->applyServerManagedFcmTokenFields(
+            $deviceData,
+            $payload,
+            is_string($previousFcmToken) ? $previousFcmToken : null,
+            $serverTime
         );
     }
 
@@ -307,7 +415,6 @@ class SupplierController extends ResourceController
             'mensaje_ultimo_error' => ['last_error_message', 'mensaje_ultimo_error'],
             'ultimo_error_en' => ['last_error_at', 'ultimo_error_en'],
             'token_fcm' => ['fcm_token', 'token_fcm'],
-            'token_fcm_actualizado_en' => ['fcm_token_updated_at', 'token_fcm_actualizado_en'],
             'ultimo_push_fcm_en' => ['last_fcm_push_at', 'ultimo_push_fcm_en'],
             'ultimo_fcm_recibido_en' => ['last_fcm_received_at', 'ultimo_fcm_recibido_en'],
             'activo' => ['active', 'activo'],
@@ -364,6 +471,38 @@ class SupplierController extends ResourceController
         }
 
         return false;
+    }
+
+    private function applyServerManagedFcmTokenFields(
+        array $deviceData,
+        array $payload,
+        ?string $previousFcmToken,
+        string $serverTime
+    ): array {
+        if (!$this->hasAnyPayloadKey($payload, ['fcm_token', 'token_fcm'])) {
+            return $deviceData;
+        }
+
+        $newFcmToken = $this->nullableString($payload, ['fcm_token', 'token_fcm']);
+
+        unset($deviceData['token_fcm_actualizado_en']);
+
+        if (
+            $newFcmToken !== null
+            && $newFcmToken !== ''
+            && $newFcmToken !== $previousFcmToken
+        ) {
+            $deviceData['token_fcm_actualizado_en'] = $serverTime;
+        }
+
+        return $deviceData;
+    }
+
+    private function resolveFcmEventIdentifier(array $payload): ?string
+    {
+        $eventIdentifier = $this->nullableString($payload, ['event_id', 'message_id']);
+
+        return $eventIdentifier === null ? null : trim($eventIdentifier);
     }
 
     private function buildHeartbeatValidationPayload(array $payload): array

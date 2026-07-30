@@ -23,6 +23,7 @@ $routes->group('v1', static function ($routes) {
                 $routes->get('pending-messages', 'Gateway\SMS\SupplierController::pendingMessages');
                 $routes->post('confirm-sent-message', 'Gateway\SMS\SupplierController::confirmSentMessage');
                 $routes->post('heartbeat', 'Gateway\SMS\SupplierController::heartbeat');
+                $routes->post('fcm-ack', 'Gateway\SMS\SupplierController::confirmFcmReceived');
             });
             $routes->group('client', ['filter' => 'tokenAuth'], static function ($routes) {
                 $routes->post('send', 'Gateway\SMS\ClientController::sendSms');
@@ -74,6 +75,11 @@ $routes->group('apk', ['filter' => 'tokenAuth'], static function ($routes) {
 $routes->group('dashboard', static function ($routes) {
     $routes->get('/', 'Monitoring\MonitoringController::index');
     $routes->get('data', 'Monitoring\MonitoringController::getDashboardData');
+    $routes->post(
+        'providers/(:num)/test-fcm',
+        'Monitoring\MonitoringController::testFcm/$1',
+        ['filter' => ['session', 'permission:admin.access']]
+    );
 });
 
 $routes->get('dashboard/messages', 'Monitoring\MonitoringController::getMessagesData');

@@ -124,6 +124,8 @@ nb-configuration.xml
 
 /results/
 /phpunit*.xml
+
+# Firebase Admin credentials
 *-firebase-adminsdk-*.json
 firebase-service-account.json
 service-account*.json
