@@ -558,9 +558,15 @@ class SupplierController extends ResourceController
         if (
             $newFcmToken !== null
             && $newFcmToken !== ''
-            && $newFcmToken !== $previousFcmToken
         ) {
-            $deviceData['token_fcm_actualizado_en'] = $serverTime;
+            $deviceData['activo'] = 1;
+            $deviceData['codigo_ultimo_error'] = null;
+            $deviceData['mensaje_ultimo_error'] = null;
+            $deviceData['ultimo_error_en'] = null;
+
+            if ($newFcmToken !== $previousFcmToken) {
+                $deviceData['token_fcm_actualizado_en'] = $serverTime;
+            }
         }
 
         return $deviceData;

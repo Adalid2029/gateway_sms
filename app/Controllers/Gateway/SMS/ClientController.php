@@ -112,10 +112,17 @@ class ClientController extends BaseController
     {
         $devices = $this->supplierDeviceModel->getPushEligibleDevices();
 
-        log_message('info', 'SMS_PENDING - START - sms_id: {sms_id} - channel: {channel} - eligible_devices: {eligible_devices}', [
+        $tierCounts = array_count_values(array_map(
+            static fn (array $device): string => (string) ($device['selection_tier'] ?? 'UNKNOWN'),
+            $devices
+        ));
+
+        log_message('info', 'SMS_PENDING - START - sms_id: {sms_id} - channel: {channel} - eligible_devices: {eligible_devices} - online_candidates: {online_candidates} - reactivable_candidates: {reactivable_candidates}', [
             'sms_id' => $smsId,
             'channel' => $channel,
             'eligible_devices' => count($devices),
+            'online_candidates' => (int) ($tierCounts['ONLINE'] ?? 0),
+            'reactivable_candidates' => (int) ($tierCounts['REACTIVABLE'] ?? 0),
         ]);
 
         if ($devices === []) {
@@ -204,12 +211,18 @@ class ClientController extends BaseController
                 $serverTime
             );
 
-            log_message('info', 'SMS_PENDING - ACCEPTED - sms_id: {sms_id} - provider_id: {provider_id} - device_id: {device_id} - event_id: {event_id} - message_id: {message_id} - priority: {priority} - ttl_seconds: {ttl_seconds} - payload_type: {payload_type}', [
+            log_message('info', 'SMS_PENDING - ACCEPTED - sms_id: {sms_id} - provider_id: {provider_id} - device_id: {device_id} - event_id: {event_id} - message_id: {message_id} - selection_tier: {selection_tier} - heartbeat_age_seconds: {heartbeat_age_seconds} - fcm_received_age_seconds: {fcm_received_age_seconds} - service_state: {service_state} - network_validated: {network_validated} - sim_available: {sim_available} - priority: {priority} - ttl_seconds: {ttl_seconds} - payload_type: {payload_type}', [
                 'sms_id' => $smsId,
                 'provider_id' => $providerId,
                 'device_id' => $deviceId,
                 'event_id' => $eventIdentifier,
                 'message_id' => (string) $result['message_id'],
+                'selection_tier' => (string) ($device['selection_tier'] ?? 'UNKNOWN'),
+                'heartbeat_age_seconds' => $this->formatNullableLogValue($device['heartbeat_age_seconds'] ?? null),
+                'fcm_received_age_seconds' => $this->formatNullableLogValue($device['fcm_received_age_seconds'] ?? null),
+                'service_state' => (string) ($device['estado_servicio'] ?? 'UNKNOWN'),
+                'network_validated' => (string) ($device['red_validada'] ?? 'UNKNOWN'),
+                'sim_available' => (string) ($device['sim_disponible'] ?? 'UNKNOWN'),
                 'priority' => (string) ($result['requested_priority'] ?? 'HIGH'),
                 'ttl_seconds' => (int) ($result['requested_ttl_seconds'] ?? 0),
                 'payload_type' => (string) ($result['payload_type'] ?? 'data-only'),
@@ -269,6 +282,11 @@ class ClientController extends BaseController
             substr($hex, 16, 4),
             substr($hex, 20, 12)
         );
+    }
+
+    private function formatNullableLogValue($value): string
+    {
+        return $value === null ? 'none' : (string) $value;
     }
 
     public function listSystems()

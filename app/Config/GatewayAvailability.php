@@ -12,9 +12,17 @@ class GatewayAvailability extends BaseConfig
      */
     public string $displayTimezone = 'America/La_Paz';
 
-    public int $onlineThresholdSeconds = 120;
-    public int $delayedThresholdSeconds = 600;
-    public int $availabilityLeaseSeconds = 120;
+    public int $heartbeatIntervalExpectedSeconds = 300;
+
+    /**
+     * Lease means recent evidence, useful for presence and ordering. An expired
+     * lease does not invalidate an FCM token or block a wake attempt.
+     */
+    public int $onlineThresholdSeconds = 420;
+    public int $delayedThresholdSeconds = 900;
+    public int $availabilityLeaseSeconds = 420;
     public int $pendingSmsWindowSeconds = 300;
     public int $fcmTtlSeconds = 120;
+    public int $fcmAckTimeoutSeconds = 15;
+    public int $fcmMaxWakeAttempts = 2;
 }

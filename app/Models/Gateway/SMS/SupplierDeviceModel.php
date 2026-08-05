@@ -128,38 +128,154 @@ class SupplierDeviceModel extends Model
 
     public function getPushEligibleDevices(): array
     {
-        return $this->basePushEligibleQuery()
-            ->orderBy('id_users_proveedor_sms', 'ASC')
-            ->orderBy('ultimo_latido_en', 'DESC')
-            ->orderBy('id_dispositivo_proveedor_gateway', 'DESC')
+        $rows = $this->baseWakeCandidateQuery()
             ->findAll();
+
+        return $this->selectCurrentWakeCandidatesByProvider($rows);
     }
 
     public function getPushEligibleDevicesForProvider(int $providerId): array
     {
-        return $this->basePushEligibleQuery()
+        $rows = $this->baseWakeCandidateQuery()
             ->where('id_users_proveedor_sms', $providerId)
-            ->orderBy('ultimo_latido_en', 'DESC')
-            ->orderBy('id_dispositivo_proveedor_gateway', 'DESC')
             ->findAll();
+
+        $devices = array_map(fn (array $row): array => $this->withWakeSelectionMetadata($row), $rows);
+        usort($devices, fn (array $left, array $right): int => $this->compareWakeCandidates($left, $right));
+
+        return $devices;
     }
 
-    private function basePushEligibleQuery(): self
+    public function findWakeCandidateForProvider(int $providerId): array
     {
-        $availability = config(GatewayAvailability::class);
-        $minimumHeartbeat = GatewayClock::secondsAgo($availability->availabilityLeaseSeconds);
+        $devices = $this->getPushEligibleDevicesForProvider($providerId);
 
-        return $this->where('activo', 1)
+        if ($devices === []) {
+            return [
+                'device' => null,
+                'selection_tier' => 'NONE',
+            ];
+        }
+
+        $device = $this->withWakeSelectionMetadata($devices[0]);
+
+        return [
+            'device' => $device,
+            'selection_tier' => $device['selection_tier'],
+        ];
+    }
+
+    private function baseWakeCandidateQuery(): self
+    {
+        $builder = $this->where('activo', 1);
+
+        if ($this->db->fieldExists('deleted_at', $this->table)) {
+            $builder->where('deleted_at IS NULL', null, false);
+        }
+
+        return $builder
             ->where('token_fcm IS NOT NULL', null, false)
             ->where('token_fcm !=', '')
             ->where('estado_configuracion', 'COMPLETE')
-            ->where('sim_disponible', 1)
-            ->where('red_validada', 1)
             ->groupStart()
                 ->where('codigo_ultimo_error IS NULL', null, false)
                 ->orWhere('codigo_ultimo_error !=', 'FCM_TOKEN_NOT_REGISTERED')
-            ->groupEnd()
-            ->where('ultimo_latido_en >=', $minimumHeartbeat);
+            ->groupEnd();
+    }
+
+    private function selectCurrentWakeCandidatesByProvider(array $rows): array
+    {
+        $devicesByProviderId = [];
+
+        foreach ($rows as $row) {
+            $providerId = (int) ($row['id_users_proveedor_sms'] ?? 0);
+
+            if ($providerId <= 0) {
+                continue;
+            }
+
+            $candidate = $this->withWakeSelectionMetadata($row);
+
+            if (
+                !array_key_exists($providerId, $devicesByProviderId)
+                || $this->compareWakeCandidates($candidate, $devicesByProviderId[$providerId]) < 0
+            ) {
+                $devicesByProviderId[$providerId] = $candidate;
+            }
+        }
+
+        return array_values($devicesByProviderId);
+    }
+
+    private function withWakeSelectionMetadata(array $device): array
+    {
+        $device['selection_tier'] = $this->isPreferredWakeDevice($device) ? 'ONLINE' : 'REACTIVABLE';
+        $device['heartbeat_age_seconds'] = $this->ageSeconds($device['ultimo_latido_en'] ?? null);
+        $device['fcm_received_age_seconds'] = $this->ageSeconds($device['ultimo_fcm_recibido_en'] ?? null);
+
+        return $device;
+    }
+
+    private function compareWakeCandidates(array $left, array $right): int
+    {
+        $leftScores = $this->wakeCandidateSortScores($left);
+        $rightScores = $this->wakeCandidateSortScores($right);
+
+        foreach ($leftScores as $index => $leftScore) {
+            $rightScore = $rightScores[$index];
+
+            if ($leftScore === $rightScore) {
+                continue;
+            }
+
+            return $leftScore > $rightScore ? -1 : 1;
+        }
+
+        return 0;
+    }
+
+    private function wakeCandidateSortScores(array $device): array
+    {
+        return [
+            ($device['selection_tier'] ?? 'REACTIVABLE') === 'ONLINE' ? 1 : 0,
+            !empty($device['lease_expires_at']) && (string) $device['lease_expires_at'] >= GatewayClock::nowDatabase() ? 1 : 0,
+            $this->timestampScore($device['ultimo_latido_en'] ?? null),
+            $this->timestampScore($device['ultimo_fcm_recibido_en'] ?? null),
+            strtoupper((string) ($device['estado_servicio'] ?? '')) === 'RUNNING' ? 1 : 0,
+            (int) ($device['red_validada'] ?? 0) === 1 ? 1 : 0,
+            (int) ($device['sim_disponible'] ?? 0) === 1 ? 1 : 0,
+            (int) ($device['id_dispositivo_proveedor_gateway'] ?? 0),
+        ];
+    }
+
+    private function timestampScore($dateTime): int
+    {
+        $parsed = GatewayClock::parseDatabase(is_string($dateTime) ? $dateTime : null);
+
+        return $parsed === null ? 0 : $parsed->getTimestamp();
+    }
+
+    private function isPreferredWakeDevice(array $device): bool
+    {
+        $now = GatewayClock::nowDatabase();
+        $minimumHeartbeat = GatewayClock::secondsAgo(config(GatewayAvailability::class)->availabilityLeaseSeconds);
+
+        if (!empty($device['lease_expires_at']) && (string) $device['lease_expires_at'] >= $now) {
+            return true;
+        }
+
+        if (!empty($device['ultimo_latido_en']) && (string) $device['ultimo_latido_en'] >= $minimumHeartbeat) {
+            return true;
+        }
+
+        return !empty($device['ultimo_fcm_recibido_en']) && (string) $device['ultimo_fcm_recibido_en'] >= $minimumHeartbeat;
+    }
+
+    private function ageSeconds($dateTime): ?int
+    {
+        $parsed = GatewayClock::parseDatabase(is_string($dateTime) ? $dateTime : null);
+
+        return $parsed === null ? null : max(0, GatewayClock::now()->getTimestamp() - $parsed->getTimestamp());
     }
 
     public function markPushSent(int $deviceId, string $serverTime): bool
@@ -203,9 +319,17 @@ class SupplierDeviceModel extends Model
 
     public function markFcmReceived(int $deviceId, string $serverTime): bool
     {
-        return $this->update($deviceId, [
+        $data = [
             'ultimo_fcm_recibido_en' => $serverTime,
-        ]);
+        ];
+
+        if ($this->supportsAvailabilityLease()) {
+            $data['lease_expires_at'] = GatewayClock::secondsFromNow(
+                config(GatewayAvailability::class)->availabilityLeaseSeconds
+            );
+        }
+
+        return $this->update($deviceId, $data);
     }
 
     public function supportsAvailabilityLease(): bool

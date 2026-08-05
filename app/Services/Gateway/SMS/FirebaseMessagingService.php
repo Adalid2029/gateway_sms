@@ -64,12 +64,18 @@ class FirebaseMessagingService
 
         $payload = $this->normalizeDataPayload($event, $data);
 
+        $androidConfig = AndroidConfig::new()->withHighMessagePriority();
+
+        if (method_exists($androidConfig, 'withTtl')) {
+            $androidConfig = $androidConfig->withTtl($this->availabilityConfig->fcmTtlSeconds . 's');
+        } elseif (method_exists($androidConfig, 'withTimeToLive')) {
+            $androidConfig = $androidConfig->withTimeToLive($this->availabilityConfig->fcmTtlSeconds . 's');
+        }
+
         $message = CloudMessage::new()
             ->toToken($token)
             ->withData($payload)
-            ->withAndroidConfig(
-                AndroidConfig::new()->withHighMessagePriority()
-            );
+            ->withAndroidConfig($androidConfig);
 
         try {
             $response = $this->messaging->send($message);
