@@ -5,6 +5,8 @@ namespace App\Controllers\Gateway\SMS;
 use App\Models\Gateway\SMS\PushFcmEventModel;
 use App\Models\Gateway\SMS\SupplierDeviceModel;
 use App\Models\Gateway\SMS\SupplierModel;
+use App\Libraries\Gateway\GatewayClock;
+use Config\GatewayAvailability;
 use CodeIgniter\HTTP\ResponseInterface;
 use CodeIgniter\RESTful\ResourceController;
 
@@ -138,7 +140,7 @@ class SupplierController extends ResourceController
 
         $data = (array) $this->request->getJSON();
         $data['id_users_proveedor_sms'] = $this->user->id;
-        $data['fecha_respuesta_sms'] = date('Y-m-d H:i:s');
+        $data['fecha_respuesta_sms'] = GatewayClock::nowDatabase();
         $data['canal_envio'] = $channel;
 
         $updatedMessage = $this->supplierModel->confirmSentMessage($data);
@@ -204,7 +206,7 @@ class SupplierController extends ResourceController
                 ]);
         }
 
-        $serverTime = date('Y-m-d H:i:s');
+        $serverTime = GatewayClock::nowDatabase();
 
         if ($existingDevice === null) {
             $deviceData = $this->buildHeartbeatInsertData($payload, $serverTime);
@@ -312,7 +314,7 @@ class SupplierController extends ResourceController
                 ]);
         }
 
-        $serverTime = date('Y-m-d H:i:s');
+        $serverTime = GatewayClock::nowDatabase();
 
         $this->supplierDeviceModel->markFcmReceived(
             (int) $device['id_dispositivo_proveedor_gateway'],
@@ -395,6 +397,8 @@ class SupplierController extends ResourceController
             $this->extractOptionalHeartbeatFields($payload)
         );
 
+        $this->applyAvailabilityLease($deviceData);
+
         return $this->applyServerManagedFcmTokenFields(
             $deviceData,
             $payload,
@@ -417,6 +421,8 @@ class SupplierController extends ResourceController
             ],
             $this->extractOptionalHeartbeatFields($payload)
         );
+
+        $this->applyAvailabilityLease($deviceData);
 
         return $this->applyServerManagedFcmTokenFields(
             $deviceData,
@@ -473,6 +479,17 @@ class SupplierController extends ResourceController
         }
 
         return $data;
+    }
+
+    private function applyAvailabilityLease(array &$deviceData): void
+    {
+        if (!$this->supplierDeviceModel->supportsAvailabilityLease()) {
+            return;
+        }
+
+        $deviceData['lease_expires_at'] = GatewayClock::secondsFromNow(
+            config(GatewayAvailability::class)->availabilityLeaseSeconds
+        );
     }
 
     private function transformHeartbeatField(string $targetField, array $payload, array $sourceKeys)
@@ -643,6 +660,6 @@ class SupplierController extends ResourceController
 
         $timestamp = strtotime($value);
 
-        return $timestamp === false ? null : date('Y-m-d H:i:s', $timestamp);
+        return $timestamp === false ? null : GatewayClock::formatDatabase((new \DateTimeImmutable())->setTimestamp($timestamp));
     }
 }

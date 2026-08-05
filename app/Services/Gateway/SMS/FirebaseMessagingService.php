@@ -14,6 +14,7 @@ use Kreait\Firebase\Exception\MessagingException;
 use Kreait\Firebase\Factory;
 use Kreait\Firebase\Messaging\AndroidConfig;
 use Kreait\Firebase\Messaging\CloudMessage;
+use Config\GatewayAvailability;
 use Throwable;
 
 use function get_debug_type;
@@ -26,11 +27,13 @@ use function trim;
 class FirebaseMessagingService
 {
     private readonly FirebaseConfig $config;
+    private readonly GatewayAvailability $availabilityConfig;
     private readonly Messaging $messaging;
 
     public function __construct(?FirebaseConfig $config = null)
     {
         $this->config = $config ?? config('Firebase');
+        $this->availabilityConfig = config(GatewayAvailability::class);
 
         $serviceAccount = $this->config->validatedServiceAccount();
         $projectId = $this->config->validatedProjectId();
@@ -77,6 +80,9 @@ class FirebaseMessagingService
                 'project_id' => $this->config->validatedProjectId(),
                 'message_id' => $response['name'] ?? null,
                 'response' => $response,
+                'requested_priority' => 'HIGH',
+                'requested_ttl_seconds' => $this->availabilityConfig->fcmTtlSeconds,
+                'payload_type' => 'data-only',
                 'should_clear_token' => false,
                 'error_code' => null,
                 'error_message' => null,
@@ -88,6 +94,9 @@ class FirebaseMessagingService
                 'project_id' => $this->config->validatedProjectId(),
                 'message_id' => null,
                 'response' => null,
+                'requested_priority' => 'HIGH',
+                'requested_ttl_seconds' => $this->availabilityConfig->fcmTtlSeconds,
+                'payload_type' => 'data-only',
                 'should_clear_token' => true,
                 'error_code' => 'FCM_TOKEN_NOT_REGISTERED',
                 'error_message' => $exception->getMessage(),
@@ -99,6 +108,9 @@ class FirebaseMessagingService
                 'project_id' => $this->config->validatedProjectId(),
                 'message_id' => null,
                 'response' => null,
+                'requested_priority' => 'HIGH',
+                'requested_ttl_seconds' => $this->availabilityConfig->fcmTtlSeconds,
+                'payload_type' => 'data-only',
                 'should_clear_token' => false,
                 'error_code' => 'FCM_INVALID_ARGUMENT',
                 'error_message' => $exception->getMessage(),
@@ -110,6 +122,9 @@ class FirebaseMessagingService
                 'project_id' => $this->config->validatedProjectId(),
                 'message_id' => null,
                 'response' => null,
+                'requested_priority' => 'HIGH',
+                'requested_ttl_seconds' => $this->availabilityConfig->fcmTtlSeconds,
+                'payload_type' => 'data-only',
                 'should_clear_token' => false,
                 'error_code' => 'FCM_SEND_ERROR',
                 'error_message' => $exception->getMessage(),
@@ -121,6 +136,9 @@ class FirebaseMessagingService
                 'project_id' => $this->config->validatedProjectId(),
                 'message_id' => null,
                 'response' => null,
+                'requested_priority' => 'HIGH',
+                'requested_ttl_seconds' => $this->availabilityConfig->fcmTtlSeconds,
+                'payload_type' => 'data-only',
                 'should_clear_token' => false,
                 'error_code' => 'FCM_UNEXPECTED_ERROR',
                 'error_message' => $exception->getMessage(),

@@ -5,6 +5,7 @@ namespace App\Services\Gateway\SMS;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
+use Config\GatewayAvailability;
 use Throwable;
 
 class DeviceStatusService
@@ -19,9 +20,6 @@ class DeviceStatusService
     public const STATUS_NETWORK_ERROR = 'NETWORK_ERROR';
     public const STATUS_SIM_ERROR = 'SIM_ERROR';
     public const STATUS_DISABLED = 'DISABLED';
-
-    private const ONLINE_THRESHOLD_SECONDS = 120;
-    private const DELAYED_THRESHOLD_SECONDS = 300;
 
     public function determineStatus(
         array $device,
@@ -55,7 +53,9 @@ class DeviceStatusService
 
         $secondsAgo = max(0, $now->getTimestamp() - $lastHeartbeat->getTimestamp());
 
-        if ($secondsAgo > self::DELAYED_THRESHOLD_SECONDS) {
+        $availability = config(GatewayAvailability::class);
+
+        if ($secondsAgo > $availability->delayedThresholdSeconds) {
             return $this->result(
                 self::STATUS_OFFLINE,
                 'El último heartbeat es demasiado antiguo',
@@ -64,7 +64,7 @@ class DeviceStatusService
             );
         }
 
-        if ($secondsAgo > self::ONLINE_THRESHOLD_SECONDS) {
+        if ($secondsAgo > $availability->onlineThresholdSeconds) {
             return $this->result(
                 self::STATUS_DELAYED,
                 'El heartbeat del dispositivo presenta retraso',
@@ -190,8 +190,8 @@ class DeviceStatusService
             'requires_attention' => $severity !== 'success',
             'last_heartbeat_seconds_ago' => $secondsAgo,
             'thresholds' => [
-                'online_seconds' => self::ONLINE_THRESHOLD_SECONDS,
-                'delayed_seconds' => self::DELAYED_THRESHOLD_SECONDS,
+                'online_seconds' => config(GatewayAvailability::class)->onlineThresholdSeconds,
+                'delayed_seconds' => config(GatewayAvailability::class)->delayedThresholdSeconds,
             ],
         ];
     }

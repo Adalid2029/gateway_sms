@@ -7,6 +7,7 @@ use App\Models\Client\SMS\ClientSystemModel;
 use App\Models\Client\SMS\SendSmsModel;
 use App\Models\Gateway\SMS\PushFcmEventModel;
 use App\Models\Gateway\SMS\SupplierDeviceModel;
+use App\Libraries\Gateway\GatewayClock;
 use Throwable;
 
 class ClientController extends BaseController
@@ -85,7 +86,7 @@ class ClientController extends BaseController
             'numero_destino' => $data['phone'],
             'mensaje' => $data['message'],
             'canal_envio' => $channel,
-            'fecha_envio' => date('Y-m-d H:i:s'),
+            'fecha_envio' => GatewayClock::nowDatabase(),
         ]);
         if (!$insertedId)
             return $this->response->setJSON([
@@ -189,7 +190,7 @@ class ClientController extends BaseController
             return;
         }
 
-        $serverTime = date('Y-m-d H:i:s');
+        $serverTime = GatewayClock::nowDatabase();
 
         if ($result['success'] === true) {
             $this->supplierDeviceModel->markPushSent($deviceId, $serverTime);
@@ -199,12 +200,15 @@ class ClientController extends BaseController
                 $serverTime
             );
 
-            log_message('info', 'SMS_PENDING - ACCEPTED - sms_id: {sms_id} - provider_id: {provider_id} - device_id: {device_id} - event_id: {event_id} - message_id: {message_id}', [
+            log_message('info', 'SMS_PENDING - ACCEPTED - sms_id: {sms_id} - provider_id: {provider_id} - device_id: {device_id} - event_id: {event_id} - message_id: {message_id} - priority: {priority} - ttl_seconds: {ttl_seconds} - payload_type: {payload_type}', [
                 'sms_id' => $smsId,
                 'provider_id' => $providerId,
                 'device_id' => $deviceId,
                 'event_id' => $eventIdentifier,
                 'message_id' => (string) $result['message_id'],
+                'priority' => (string) ($result['requested_priority'] ?? 'HIGH'),
+                'ttl_seconds' => (int) ($result['requested_ttl_seconds'] ?? 0),
+                'payload_type' => (string) ($result['payload_type'] ?? 'data-only'),
             ]);
 
             return;

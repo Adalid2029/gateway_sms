@@ -3,6 +3,8 @@
 namespace App\Models\Gateway\SMS;
 
 use CodeIgniter\Model;
+use Config\GatewayAvailability;
+use App\Libraries\Gateway\GatewayClock;
 
 class SupplierDeviceModel extends Model
 {
@@ -35,6 +37,7 @@ class SupplierDeviceModel extends Model
         'cargando_bateria',
         'servicio_iniciado_en',
         'ultimo_latido_en',
+        'lease_expires_at',
         'ultimo_poll_intento_en',
         'ultimo_poll_exitoso_en',
         'ultimo_sms_enviado_en',
@@ -118,23 +121,45 @@ class SupplierDeviceModel extends Model
 
     public function getPushEligibleDeviceForProvider(int $providerId): ?array
     {
-        return $this->where('id_users_proveedor_sms', $providerId)
-            ->where('activo', 1)
-            ->where('token_fcm IS NOT NULL', null, false)
-            ->where('token_fcm !=', '')
-            ->orderBy('ultimo_latido_en', 'DESC')
-            ->orderBy('id_dispositivo_proveedor_gateway', 'DESC')
-            ->first();
+        $devices = $this->getPushEligibleDevicesForProvider($providerId);
+
+        return $devices[0] ?? null;
     }
 
     public function getPushEligibleDevices(): array
     {
-        return $this->where('activo', 1)
-            ->where('token_fcm IS NOT NULL', null, false)
-            ->where('token_fcm !=', '')
+        return $this->basePushEligibleQuery()
+            ->orderBy('id_users_proveedor_sms', 'ASC')
             ->orderBy('ultimo_latido_en', 'DESC')
             ->orderBy('id_dispositivo_proveedor_gateway', 'DESC')
             ->findAll();
+    }
+
+    public function getPushEligibleDevicesForProvider(int $providerId): array
+    {
+        return $this->basePushEligibleQuery()
+            ->where('id_users_proveedor_sms', $providerId)
+            ->orderBy('ultimo_latido_en', 'DESC')
+            ->orderBy('id_dispositivo_proveedor_gateway', 'DESC')
+            ->findAll();
+    }
+
+    private function basePushEligibleQuery(): self
+    {
+        $availability = config(GatewayAvailability::class);
+        $minimumHeartbeat = GatewayClock::secondsAgo($availability->availabilityLeaseSeconds);
+
+        return $this->where('activo', 1)
+            ->where('token_fcm IS NOT NULL', null, false)
+            ->where('token_fcm !=', '')
+            ->where('estado_configuracion', 'COMPLETE')
+            ->where('sim_disponible', 1)
+            ->where('red_validada', 1)
+            ->groupStart()
+                ->where('codigo_ultimo_error IS NULL', null, false)
+                ->orWhere('codigo_ultimo_error !=', 'FCM_TOKEN_NOT_REGISTERED')
+            ->groupEnd()
+            ->where('ultimo_latido_en >=', $minimumHeartbeat);
     }
 
     public function markPushSent(int $deviceId, string $serverTime): bool
@@ -149,6 +174,8 @@ class SupplierDeviceModel extends Model
         return $this->update($deviceId, [
             'token_fcm' => null,
             'token_fcm_actualizado_en' => null,
+            'activo' => 0,
+            'estado_servicio' => 'STOPPED',
         ]);
     }
 
@@ -179,5 +206,10 @@ class SupplierDeviceModel extends Model
         return $this->update($deviceId, [
             'ultimo_fcm_recibido_en' => $serverTime,
         ]);
+    }
+
+    public function supportsAvailabilityLease(): bool
+    {
+        return $this->db->fieldExists('lease_expires_at', $this->table);
     }
 }

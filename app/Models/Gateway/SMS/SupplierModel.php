@@ -3,6 +3,8 @@
 namespace App\Models\Gateway\SMS;
 
 use CodeIgniter\Model;
+use App\Libraries\Gateway\GatewayClock;
+use Config\GatewayAvailability;
 
 class SupplierModel extends Model
 {
@@ -150,8 +152,9 @@ class SupplierModel extends Model
 
     public function getPendingSmsWithoutProvider(int $userId, string $channel = 'SMS'): ?array
     {
-        $fiveMinutesAgo = date('Y-m-d H:i:s', strtotime('-5 minutes'));
-        $now = date('Y-m-d H:i:s');
+        $availability = config(GatewayAvailability::class);
+        $fiveMinutesAgo = GatewayClock::secondsAgo($availability->pendingSmsWindowSeconds);
+        $now = GatewayClock::nowDatabase();
 
 
         $completedSubquery = $this->db->table('proveedor_envio_sms')
@@ -200,7 +203,7 @@ class SupplierModel extends Model
             'id_users_proveedor_sms' => $smsData['id_users_proveedor_sms'],
             'id_envio_sms' => $smsData['id_envio_sms'],
             'canal_envio' => $smsData['canal_envio'] ?? 'SMS',
-            'fecha_asignacion_sms' => date('Y-m-d H:i:s'),
+            'fecha_asignacion_sms' => GatewayClock::nowDatabase(),
             'estado_envio' => 'PROCESANDO',
         ]);
 
