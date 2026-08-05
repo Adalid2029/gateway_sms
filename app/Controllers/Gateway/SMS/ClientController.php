@@ -8,6 +8,7 @@ use App\Models\Client\SMS\SendSmsModel;
 use App\Models\Gateway\SMS\PushFcmEventModel;
 use App\Models\Gateway\SMS\SupplierDeviceModel;
 use App\Libraries\Gateway\GatewayClock;
+use Config\GatewayAvailability;
 use Throwable;
 
 class ClientController extends BaseController
@@ -87,6 +88,9 @@ class ClientController extends BaseController
             'mensaje' => $data['message'],
             'canal_envio' => $channel,
             'fecha_envio' => GatewayClock::nowDatabase(),
+            'expires_at' => $channel === 'SMS'
+                ? GatewayClock::secondsFromNow(config(GatewayAvailability::class)->pendingSmsWindowSeconds)
+                : null,
         ]);
         if (!$insertedId)
             return $this->response->setJSON([

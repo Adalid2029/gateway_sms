@@ -152,10 +152,14 @@ class SupplierModel extends Model
 
     public function getPendingSmsWithoutProvider(int $userId, string $channel = 'SMS'): ?array
     {
+        return $this->findPendingSmsWithDiagnostics($userId, $channel)['message'];
+    }
+
+    public function findPendingSmsWithDiagnostics(int $userId, string $channel = 'SMS'): array
+    {
         $availability = config(GatewayAvailability::class);
         $fiveMinutesAgo = GatewayClock::secondsAgo($availability->pendingSmsWindowSeconds);
         $now = GatewayClock::nowDatabase();
-
 
         $completedSubquery = $this->db->table('proveedor_envio_sms')
             ->select('1')
@@ -171,7 +175,14 @@ class SupplierModel extends Model
             ->where('proveedor_envio_sms.canal_envio', $channel)
             ->where('proveedor_envio_sms.estado_envio', 'RECHAZADO')
             ->where('proveedor_envio_sms.id_users_proveedor_sms !=', $userId)
-            ->where('envio_sms.fecha_envio >=', $fiveMinutesAgo)
+            ->groupStart()
+                ->where('envio_sms.expires_at IS NOT NULL', null, false)
+                ->where('envio_sms.expires_at >=', $now)
+                ->orGroupStart()
+                    ->where('envio_sms.expires_at IS NULL', null, false)
+                    ->where('envio_sms.fecha_envio >=', $fiveMinutesAgo)
+                ->groupEnd()
+            ->groupEnd()
             ->where('envio_sms.fecha_envio <=', $now)
             ->where("NOT EXISTS ({$completedSubquery->getCompiledSelect()})")
             ->orderBy('envio_sms.fecha_envio', 'ASC')
@@ -179,7 +190,7 @@ class SupplierModel extends Model
 
         $result = $builder->get()->getRowArray();
         if ($result) {
-            return $result;
+            return $this->pendingLookupResult($result, 'eligible_message_found');
         }
 
         // Buscar mensajes del canal sin intentos de envío.
@@ -188,12 +199,144 @@ class SupplierModel extends Model
             ->join('proveedor_envio_sms', 'envio_sms.id_envio_sms = proveedor_envio_sms.id_envio_sms AND proveedor_envio_sms.canal_envio = ' . $this->db->escape($channel), 'left')
             ->where('envio_sms.canal_envio', $channel)
             ->where('proveedor_envio_sms.id_proveedor_envio_sms IS NULL')
-            ->where('envio_sms.fecha_envio >=', $fiveMinutesAgo)
+            ->groupStart()
+                ->where('envio_sms.expires_at IS NOT NULL', null, false)
+                ->where('envio_sms.expires_at >=', $now)
+                ->orGroupStart()
+                    ->where('envio_sms.expires_at IS NULL', null, false)
+                    ->where('envio_sms.fecha_envio >=', $fiveMinutesAgo)
+                ->groupEnd()
+            ->groupEnd()
             ->where('envio_sms.fecha_envio <=', $now)
             ->orderBy('envio_sms.fecha_envio', 'ASC')
             ->limit(1);
 
-        return $builder->get()->getRowArray();
+        $result = $builder->get()->getRowArray();
+        if ($result) {
+            return $this->pendingLookupResult($result, 'eligible_message_found');
+        }
+
+        return $this->buildPendingDiagnostics($userId, $channel, $fiveMinutesAgo, $now);
+    }
+
+    private function pendingLookupResult(?array $message, string $reason, array $diagnostics = []): array
+    {
+        return array_merge([
+            'message' => $message,
+            'reason' => $reason,
+            'eligible_count' => $message === null ? 0 : 1,
+            'expired_count' => 0,
+            'assigned_count' => 0,
+            'completed_count' => 0,
+            'processing_count' => 0,
+            'future_count' => 0,
+            'oldest_expired_age_seconds' => null,
+            'oldest_pending_age_seconds' => $message === null
+                ? null
+                : $this->ageSeconds($message['fecha_envio'] ?? null),
+            'pending_window_seconds' => config(GatewayAvailability::class)->pendingSmsWindowSeconds,
+        ], $diagnostics);
+    }
+
+    private function buildPendingDiagnostics(int $userId, string $channel, string $fiveMinutesAgo, string $now): array
+    {
+        $base = $this->db->table('envio_sms')
+            ->select([
+                'COUNT(*) AS total_count',
+                'SUM(CASE WHEN envio_sms.fecha_envio > ' . $this->db->escape($now) . ' THEN 1 ELSE 0 END) AS future_count',
+                'MIN(CASE WHEN envio_sms.fecha_envio <= ' . $this->db->escape($now) . ' THEN envio_sms.fecha_envio ELSE NULL END) AS oldest_pending_at',
+            ], false)
+            ->where('envio_sms.canal_envio', $channel)
+            ->get()
+            ->getRowArray() ?? [];
+
+        $expired = $this->db->table('envio_sms')
+            ->select([
+                'COUNT(*) AS expired_count',
+                'MIN(envio_sms.fecha_envio) AS oldest_expired_at',
+            ])
+            ->join('proveedor_envio_sms', 'envio_sms.id_envio_sms = proveedor_envio_sms.id_envio_sms AND proveedor_envio_sms.canal_envio = ' . $this->db->escape($channel), 'left')
+            ->where('envio_sms.canal_envio', $channel)
+            ->where('envio_sms.fecha_envio <=', $now)
+            ->where('proveedor_envio_sms.id_proveedor_envio_sms IS NULL')
+            ->groupStart()
+                ->where('envio_sms.expires_at IS NOT NULL', null, false)
+                ->where('envio_sms.expires_at <', $now)
+                ->orGroupStart()
+                    ->where('envio_sms.expires_at IS NULL', null, false)
+                    ->where('envio_sms.fecha_envio <', $fiveMinutesAgo)
+                ->groupEnd()
+            ->groupEnd()
+            ->get()
+            ->getRowArray() ?? [];
+
+        $assignedCount = $this->db->table('envio_sms')
+            ->join('proveedor_envio_sms', 'envio_sms.id_envio_sms = proveedor_envio_sms.id_envio_sms')
+            ->where('envio_sms.canal_envio', $channel)
+            ->where('proveedor_envio_sms.canal_envio', $channel)
+            ->where('proveedor_envio_sms.estado_envio !=', 'COMPLETADO')
+            ->countAllResults();
+
+        $completedCount = $this->db->table('envio_sms')
+            ->join('proveedor_envio_sms', 'envio_sms.id_envio_sms = proveedor_envio_sms.id_envio_sms')
+            ->where('envio_sms.canal_envio', $channel)
+            ->where('proveedor_envio_sms.canal_envio', $channel)
+            ->where('proveedor_envio_sms.estado_envio', 'COMPLETADO')
+            ->countAllResults();
+
+        $processingCount = $this->db->table('proveedor_envio_sms')
+            ->where('id_users_proveedor_sms', $userId)
+            ->where('canal_envio', $channel)
+            ->where('estado_envio', 'PROCESANDO')
+            ->countAllResults();
+
+        $diagnostics = [
+            'expired_count' => (int) ($expired['expired_count'] ?? 0),
+            'assigned_count' => (int) $assignedCount,
+            'completed_count' => (int) $completedCount,
+            'processing_count' => (int) $processingCount,
+            'future_count' => (int) ($base['future_count'] ?? 0),
+            'oldest_expired_age_seconds' => $this->ageSeconds($expired['oldest_expired_at'] ?? null),
+            'oldest_pending_age_seconds' => $this->ageSeconds($base['oldest_pending_at'] ?? null),
+        ];
+
+        return $this->pendingLookupResult(null, $this->resolvePendingReason((int) ($base['total_count'] ?? 0), $diagnostics), $diagnostics);
+    }
+
+    private function resolvePendingReason(int $totalCount, array $diagnostics): string
+    {
+        if ($totalCount === 0) {
+            return 'no_messages_exist';
+        }
+
+        if (($diagnostics['processing_count'] ?? 0) > 0) {
+            return 'processing_message_exists';
+        }
+
+        if (($diagnostics['expired_count'] ?? 0) > 0) {
+            return 'expired_messages_only';
+        }
+
+        if (($diagnostics['completed_count'] ?? 0) > 0) {
+            return 'completed_messages_only';
+        }
+
+        if (($diagnostics['assigned_count'] ?? 0) > 0) {
+            return 'already_assigned_only';
+        }
+
+        if (($diagnostics['future_count'] ?? 0) > 0) {
+            return 'future_messages_only';
+        }
+
+        return 'no_eligible_messages';
+    }
+
+    private function ageSeconds($dateTime): ?int
+    {
+        $parsed = GatewayClock::parseDatabase(is_string($dateTime) ? $dateTime : null);
+
+        return $parsed === null ? null : max(0, GatewayClock::now()->getTimestamp() - $parsed->getTimestamp());
     }
 
     public function assignPendingSmsToProvider(array $smsData): ?int

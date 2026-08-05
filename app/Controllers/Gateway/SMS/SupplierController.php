@@ -58,11 +58,14 @@ class SupplierController extends ResourceController
 
         $this->logger->alert("PROVIDER_ACTIVITY - ID: {$this->user->id} - CHANNEL: {$channel} - ACTION: pending_messages_request - START{$logContext}");
 
-        $pendingMessage = $this->supplierModel->getPendingSmsWithoutProvider($this->user->id, $channel);
+        $lookupResult = $this->supplierModel->findPendingSmsWithDiagnostics($this->user->id, $channel);
+        $pendingMessage = $lookupResult['message'];
         if (!$pendingMessage) {
             $endTime = microtime(true);
             $executionTime = $endTime - $startTime;
-            $this->logger->alert("PROVIDER_ACTIVITY - ID: {$this->user->id} - CHANNEL: {$channel} - ACTION: pending_messages_request - END - DURATION: {$executionTime} - RESULT: no_pending_messages{$logContext}");
+            $this->logger->alert(
+                "PROVIDER_ACTIVITY - ID: {$this->user->id} - CHANNEL: {$channel} - ACTION: pending_messages_request - END - DURATION: {$executionTime} - RESULT: no_pending_messages{$logContext} - REASON: {$lookupResult['reason']} - EXPIRED_COUNT: {$lookupResult['expired_count']} - ASSIGNED_COUNT: {$lookupResult['assigned_count']} - COMPLETED_COUNT: {$lookupResult['completed_count']} - PROCESSING_COUNT: {$lookupResult['processing_count']} - FUTURE_COUNT: {$lookupResult['future_count']} - OLDEST_EXPIRED_AGE_SECONDS: {$this->formatNullableLogValue($lookupResult['oldest_expired_age_seconds'])} - OLDEST_PENDING_AGE_SECONDS: {$this->formatNullableLogValue($lookupResult['oldest_pending_age_seconds'])} - PENDING_WINDOW_SECONDS: {$lookupResult['pending_window_seconds']}"
+            );
 
             return $this->response
                 ->setStatusCode(ResponseInterface::HTTP_OK)
@@ -74,6 +77,7 @@ class SupplierController extends ResourceController
 
         $pendingMessage['id_users_proveedor_sms'] = $this->user->id;
         $pendingMessage['canal_envio'] = $channel;
+        $pendingAgeSeconds = $this->formatNullableLogValue($lookupResult['oldest_pending_age_seconds']);
 
         $assignMessageToProvider = $this->supplierModel->assignPendingSmsToProvider($pendingMessage);
 
@@ -112,7 +116,7 @@ class SupplierController extends ResourceController
 
         $endTime = microtime(true);
         $executionTime = $endTime - $startTime;
-        $this->logger->alert("PROVIDER_ACTIVITY - ID: {$this->user->id} - CHANNEL: {$channel} - ACTION: pending_messages_request - END - DURATION: {$executionTime} - RESULT: success - PROVIDER_SMS_ID: {$assignMessageToProvider} - SMS_ID: {$pendingMessage['id_envio_sms']}{$logContext}");
+        $this->logger->alert("PROVIDER_ACTIVITY - ID: {$this->user->id} - CHANNEL: {$channel} - ACTION: pending_messages_request - END - DURATION: {$executionTime} - RESULT: success - REASON: {$lookupResult['reason']} - PROVIDER_SMS_ID: {$assignMessageToProvider} - SMS_ID: {$pendingMessage['id_envio_sms']} - PENDING_AGE_SECONDS: {$pendingAgeSeconds}{$logContext}");
 
         return $this->response
             ->setJSON([
@@ -384,6 +388,11 @@ class SupplierController extends ResourceController
             $context['device_id'] ?? 'unknown',
             $context['installation_id'] ?? 'unknown'
         );
+    }
+
+    private function formatNullableLogValue($value): string
+    {
+        return $value === null ? 'none' : (string) $value;
     }
 
     private function buildHeartbeatInsertData(array $payload, string $serverTime): array
