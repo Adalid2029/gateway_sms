@@ -22,6 +22,7 @@ class GatewayAvailability extends BaseConfig
     public int $delayedThresholdSeconds = 900;
     public int $availabilityLeaseSeconds = 420;
     public int $pendingSmsWindowSeconds = 300;
+    public int $processingLockSeconds = 120;
     public int $fcmTtlSeconds = 120;
     public int $fcmAckTimeoutSeconds = 15;
     public int $fcmMaxWakeAttempts = 2;
